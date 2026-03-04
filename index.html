@@ -15,7 +15,6 @@
         
         body, html, #map { height: 100%; width: 100%; margin: 0; padding: 0; background: #f0f0f0; overflow: hidden; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
         
-        /* Restored Header with Uploaded Logo */
         .logo-header { position: absolute; top: 15px; left: 50%; transform: translateX(-50%); z-index: 1001; background: var(--bg); padding: 8px 20px; border-radius: 60px; box-shadow: 0 8px 25px rgba(0,0,0,0.15); display: flex; align-items: center; gap: 10px; border: 1.5px solid var(--border); }
         .header-logo-img { width: 35px; height: 35px; border-radius: 50%; object-fit: contain; }
         .logo-text { font-weight: 800; font-size: 18px; color: var(--text); }
@@ -62,7 +61,7 @@
             <img id="profilePic" src="Ron Sarmenta.jpg" style="width:50px; height:50px; border-radius:50%; border:2px solid #007AFF; object-fit:cover;" onerror="this.src='https://cdn-icons-png.flaticon.com/512/3135/3135715.png'">
             <div>
                 <b id="displayDriver">Ron Sarmenta</b><br>
-                <span style="font-size:11px; color:var(--secondary-text);">Status: <span id="lastUpdateTime" style="color:#34C759; font-weight:bold;">Ready</span></span>
+                <span style="font-size:11px; color:var(--secondary-text);">Status: <span id="lastUpdateTime" style="color:#8e8e93; font-weight:bold;">undefined (--)</span></span>
             </div>
         </div>
 
@@ -143,7 +142,6 @@
         window.toggleTracking = async () => {
             const btn = document.getElementById('btn');
             const driverId = document.getElementById('driverPicker').value;
-            const driverName = document.getElementById('displayDriver').innerText;
 
             if (!window.isTracking) {
                 window.watchID = navigator.geolocation.watchPosition(async (pos) => {
@@ -168,16 +166,14 @@
                     const timeStamp = new Date().toLocaleTimeString();
                     const dateKey = new Date().toISOString().split('T')[0];
 
-                    // Update Real-time Status
+                    // Restored Real-time Update Logic
                     update(ref(db, `cars/${driverId}`), { 
                         lat, lng, speed, battery: batt, 
                         lastSeen: timeStamp,
                         status: "Active"
                     });
 
-                    // Update History Log
                     push(ref(db, `history/${driverId}/${dateKey}`), { lat, lng, speed, time: timeStamp });
-
                 }, null, { enableHighAccuracy: true });
             } else {
                 window.isTracking = false; navigator.geolocation.clearWatch(window.watchID);
@@ -190,11 +186,20 @@
             const picker = document.getElementById('driverPicker');
             const name = picker.options[picker.selectedIndex].text;
             document.getElementById('displayDriver').innerText = name;
+            // Restored Profile JPG mapping
             document.getElementById('profilePic').src = name + ".jpg";
             
+            // Restored Status: undefined (--) listener
             onValue(ref(db, `cars/${picker.value}`), (s) => {
                 const data = s.val();
-                if(data) document.getElementById('lastUpdateTime').innerText = `${data.status} (${data.lastSeen || '--'})`;
+                const statusEl = document.getElementById('lastUpdateTime');
+                if(data) {
+                    statusEl.innerText = `${data.status || 'Offline'} (${data.lastSeen || '--'})`;
+                    statusEl.style.color = data.status === "Active" ? "#34C759" : "#FF3B30";
+                } else {
+                    statusEl.innerText = "undefined (--)";
+                    statusEl.style.color = "#8e8e93";
+                }
             });
         };
 
@@ -218,22 +223,11 @@
                 Object.values(snap.val()).forEach(h => {
                     list.innerHTML += `<div class="history-entry"><b>${h.time}</b>: ${h.speed}km/h at [${h.lat.toFixed(4)}, ${h.lng.toFixed(4)}]</div>`;
                 });
-            } else { list.innerHTML = "No history for this date."; }
-        };
-
-        window.exportToExcel = async () => {
-            const snap = await get(ref(db, 'reports'));
-            const data = snap.val();
-            if(!data) return alert("No data to export");
-            const rows = [["Driver", "Distance (km)", "Liters", "Efficiency (km/L)", "Date"]];
-            Object.values(data).forEach(r => rows.push([r.driver, r.distance, r.liters, r.efficiency, r.date]));
-            const ws = XLSX.utils.aoa_to_sheet(rows);
-            const wb = XLSX.utils.book_new();
-            XLSX.utils.book_append_sheet(wb, ws, "FleetReport");
-            XLSX.writeFile(wb, "iMerch_Fleet_Report.xlsx");
+            } else { list.innerHTML = "No history found."; }
         };
 
         window.checkAdminPass = async () => {
+            // Admin PIN: 1234 check
             if(prompt("Admin PIN:") === "1234") {
                 document.getElementById('chartModal').style.display='flex';
                 const snap = await get(ref(db, 'reports'));
@@ -243,7 +237,15 @@
                     Object.values(snap.val()).forEach(r => {
                         list.innerHTML += `<div class="leaderboard-item"><span>${r.driver} (${r.date})</span><b>${r.efficiency} km/L</b></div>`;
                     });
-                } else { list.innerHTML = "No records found."; }
+                }
+            } else { alert("Wrong PIN"); }
+        };
+
+        window.clearLogs = async () => {
+            if(confirm("Admin: Clear all fleet reports?")) {
+                await remove(ref(db, 'reports'));
+                alert("Logs cleared.");
+                closeModal('chartModal');
             }
         };
 
