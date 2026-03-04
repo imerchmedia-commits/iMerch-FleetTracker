@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>CarTracker PH Live + Max Speed</title>
+    <title>CarTracker PH Live + Driver ID</title>
     <link rel="manifest" href="manifest.json">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -13,14 +13,19 @@
     <style>
         body, html, #map { height: 100%; width: 100%; margin: 0; padding: 0; background: #f0f0f0; }
         .menu { position: absolute; bottom: 30px; left: 50%; transform: translateX(-50%); z-index: 1000; background: white; padding: 15px; border-radius: 20px; box-shadow: 0 8px 25px rgba(0,0,0,0.3); display: flex; flex-direction: column; align-items: center; gap: 5px; min-width: 280px; border: 2px solid #007AFF; transition: all 0.3s; }
-        button { padding: 12px 20px; border-radius: 12px; border: none; background: #007AFF; color: white; font-weight: bold; width: 100%; cursor: pointer; font-size: 16px; }
+        
+        /* Driver Info Styles */
+        .driver-info { text-align: center; margin-bottom: 5px; border-bottom: 1px solid #eee; width: 100%; padding-bottom: 8px; }
+        .driver-name { font-size: 16px; font-weight: bold; color: #222; display: block; }
+        .driver-user { font-size: 11px; color: #007AFF; font-weight: 600; text-transform: lowercase; }
+
+        button { padding: 12px 20px; border-radius: 12px; border: none; background: #007AFF; color: white; font-weight: bold; width: 100%; cursor: pointer; font-size: 16px; margin-top: 5px; }
         .stats-row { display: flex; gap: 10px; align-items: center; margin: 5px 0; width: 100%; justify-content: space-around; }
         .speed-display { font-size: 28px; font-weight: bold; color: #007AFF; text-align: center; line-height: 1; }
         .speed-label { font-size: 10px; text-transform: uppercase; display: block; color: #666; }
         .sub-stats { font-size: 13px; font-weight: bold; color: #444; display: flex; flex-direction: column; gap: 2px; }
         .status { font-size: 12px; color: #666; text-align: center; font-weight: 500; border-top: 1px solid #eee; padding-top: 5px; width: 100%; }
         
-        /* Alert Styles */
         .outside-fence { border: 3px solid #FF3B30 !important; background: #ffebeb !important; }
         .outside-text, .low-battery { color: #FF3B30 !important; animation: blink 1s infinite; }
         @keyframes blink { 50% { opacity: 0; } }
@@ -29,7 +34,13 @@
 <body>
     <div id="map"></div>
     <div class="menu" id="mainMenu">
+        <div class="driver-info">
+            <span class="driver-name" id="displayDriver">Ron Sanity</span>
+            <span class="driver-user" id="displayUser">@ronsarmenta_imerch</span>
+        </div>
+
         <button onclick="toggleTracking()" id="btn">📡 Start PH Tracking</button>
+        
         <div class="stats-row">
             <div class="speed-display">
                 <span id="speed">0</span>
@@ -64,10 +75,8 @@
         
         const geofence = L.circle(fenceCenter, { color: '#007AFF', fillColor: '#007AFF', fillOpacity: 0.1, radius: fenceRadius }).addTo(map);
         let carMarker = L.marker(fenceCenter).addTo(map);
-
         let routePath = L.polyline([], {color: '#007AFF', weight: 5, opacity: 0.6}).addTo(map);
 
-        // Tracking Variables
         let totalDistance = 0;
         let lastLatLng = null;
         let currentMaxSpeed = 0;
@@ -75,23 +84,27 @@
         // MONITOR
         onValue(ref(db, 'cars/car1'), (snap) => {
             if(snap.exists()){
-                const {lat, lng, speed, battery, dist, history, maxSpeed} = snap.val();
-                const carPos = L.latLng(lat, lng);
+                const data = snap.val();
+                const carPos = L.latLng(data.lat, data.lng);
                 carMarker.setLatLng(carPos);
                 map.setView(carPos);
 
-                if (history) {
-                    const pathArray = Object.values(history).map(pt => [pt.lat, pt.lng]);
+                if (data.history) {
+                    const pathArray = Object.values(data.history).map(pt => [pt.lat, pt.lng]);
                     routePath.setLatLngs(pathArray);
                 }
 
-                document.getElementById('speed').innerText = speed || 0;
-                document.getElementById('distance').innerText = "🏁 " + (dist || "0.00") + " km";
-                document.getElementById('maxSpeed').innerText = "🚀 Max: " + (maxSpeed || 0) + " km/h";
+                // Sync Driver Name/User if updated in DB
+                if(data.driverName) document.getElementById('displayDriver').innerText = data.driverName;
+                if(data.username) document.getElementById('displayUser').innerText = "@" + data.username;
+
+                document.getElementById('speed').innerText = data.speed || 0;
+                document.getElementById('distance').innerText = "🏁 " + (data.dist || "0.00") + " km";
+                document.getElementById('maxSpeed').innerText = "🚀 Max: " + (data.maxSpeed || 0) + " km/h";
                 
                 const batLabel = document.getElementById('battery');
-                batLabel.innerText = (battery <= 20 ? "🪫 " : "🔋 ") + (battery || "--") + "%";
-                batLabel.className = battery <= 20 ? "low-battery" : "";
+                batLabel.innerText = (data.battery <= 20 ? "🪫 " : "🔋 ") + (data.battery || "--") + "%";
+                batLabel.className = data.battery <= 20 ? "low-battery" : "";
                 
                 const distToCenter = map.distance(carPos, L.latLng(fenceCenter));
                 const statusLabel = document.getElementById('status');
@@ -132,23 +145,18 @@
                 watchID = navigator.geolocation.watchPosition(async pos => {
                     const lat = pos.coords.latitude;
                     const lng = pos.coords.longitude;
-                    const currentLatLng = L.latLng(lat, lng);
                     const speedKMH = Math.round((pos.coords.speed || 0) * 3.6);
                     
-                    // Update Max Speed
-                    if (speedKMH > currentMaxSpeed) {
-                        currentMaxSpeed = speedKMH;
-                    }
+                    if (speedKMH > currentMaxSpeed) currentMaxSpeed = speedKMH;
 
                     if (lastLatLng) {
-                        const d = map.distance(lastLatLng, currentLatLng);
+                        const d = map.distance(lastLatLng, L.latLng(lat, lng));
                         if (d > 5) {
                             totalDistance += d;
-                            const historyRef = ref(db, `cars/car1/history/${Date.now()}`);
-                            set(historyRef, {lat, lng});
+                            set(ref(db, `cars/car1/history/${Date.now()}`), {lat, lng});
                         }
                     }
-                    lastLatLng = currentLatLng;
+                    lastLatLng = L.latLng(lat, lng);
 
                     let batteryLevel = 0;
                     if (navigator.getBattery) {
@@ -165,6 +173,8 @@
                     updates['cars/car1/maxSpeed'] = currentMaxSpeed;
                     updates['cars/car1/battery'] = batteryLevel;
                     updates['cars/car1/dist'] = distKM;
+                    updates['cars/car1/driverName'] = document.getElementById('displayDriver').innerText;
+                    updates['cars/car1/username'] = document.getElementById('displayUser').innerText.replace('@','');
                     updates['cars/car1/lastUpdate'] = new Date().toISOString();
                     
                     update(ref(db), updates);
