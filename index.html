@@ -12,9 +12,7 @@
         
         .driver-container { display: flex; align-items: center; gap: 12px; width: 100%; padding-bottom: 10px; border-bottom: 1px solid #eee; margin-bottom: 5px; }
         .profile-img { width: 52px; height: 52px; border-radius: 50%; border: 2px solid #007AFF; object-fit: cover; background: #eee; }
-        .tracking-active .profile-img { border-color: #34C759; animation: pulse 2s infinite; }
-        @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(52, 199, 89, 0.4); } 70% { box-shadow: 0 0 0 10px rgba(52, 199, 89, 0); } 100% { box-shadow: 0 0 0 0 rgba(52, 199, 89, 0); } }
-
+        
         .vehicle-switcher { display: flex; width: 100%; gap: 5px; margin-bottom: 5px; }
         .v-btn { flex: 1; padding: 8px; font-size: 12px; border-radius: 8px; border: 1px solid #007AFF; background: white; color: #007AFF; cursor: pointer; transition: 0.3s; font-weight: bold; }
         .v-btn.active { background: #007AFF; color: white; }
@@ -36,7 +34,7 @@
 <body>
     <div id="map"></div>
     <div class="menu" id="mainMenu">
-        <select class="driver-selector" id="driverPicker" style="width:100%; padding:8px; border-radius:10px; margin-bottom:5px;">
+        <select class="driver-selector" id="driverPicker" onchange="updateDriverProfile()" style="width:100%; padding:8px; border-radius:10px; margin-bottom:5px;">
             <option value="ron">Ron Sarmenta</option>
             <option value="mico">Mico Balmaceda</option>
             <option value="darwin">Darwin Pengson</option>
@@ -88,15 +86,9 @@
         const app = initializeApp(firebaseConfig);
         const db = getDatabase(app);
 
-        const carIcon = L.icon({
-            iconUrl: 'https://cdn-icons-png.flaticon.com/512/744/744465.png',
-            iconSize: [40, 40], iconAnchor: [20, 20]
-        });
-
-        const motoIcon = L.icon({
-            iconUrl: 'https://cdn-icons-png.flaticon.com/512/1986/1986937.png',
-            iconSize: [40, 40], iconAnchor: [20, 20]
-        });
+        // Icons
+        const carIcon = L.icon({ iconUrl: 'https://cdn-icons-png.flaticon.com/512/744/744465.png', iconSize: [40, 40], iconAnchor: [20, 20] });
+        const motoIcon = L.icon({ iconUrl: 'https://cdn-icons-png.flaticon.com/512/1986/1986937.png', iconSize: [40, 40], iconAnchor: [20, 20] });
 
         const map = L.map('map').setView([14.5794, 121.0359], 14);
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
@@ -107,6 +99,21 @@
         let liveListener = null;
         let isHistoryMode = false;
 
+        // --- PROFILE PICTURE & INFO UPDATER ---
+        window.updateDriverProfile = () => {
+            const picker = document.getElementById('driverPicker');
+            const val = picker.value;
+            const name = picker.options[picker.selectedIndex].text;
+            
+            // Set Image Source based on value
+            const imgPath = val === 'ron' ? "Ron Sarmenta.jpg" : val + ".jpg";
+            document.getElementById('profilePic').src = imgPath;
+            
+            // Update Text Info
+            document.getElementById('displayDriver').innerText = name;
+            document.getElementById('displayUser').innerText = "@" + val + "_imerch";
+        };
+
         window.setVehicle = (type) => {
             document.getElementById('carBtn').classList.toggle('active', type === 'car');
             document.getElementById('motoBtn').classList.toggle('active', type === 'moto');
@@ -116,18 +123,16 @@
         window.exportToExcel = async () => {
             const date = document.getElementById('historyDate').value;
             const driverKey = document.getElementById('driverPicker').value;
-            const driverName = document.getElementById('displayDriver').innerText;
             const snapshot = await get(ref(db, `archives/${driverKey}/${date}`));
-            if (!snapshot.exists()) return alert("No logs for export.");
-            const data = snapshot.val();
-            const rows = Object.keys(data).map(ts => ({
-                "Date": date, "Driver": driverName, "Time": new Date(parseInt(ts)).toLocaleTimeString('en-PH'),
-                "Lat": data[ts].lat, "Lng": data[ts].lng, "Org": "iMerch Media Inc."
+            if (!snapshot.exists()) return alert("No logs found.");
+            const rows = Object.keys(snapshot.val()).map(ts => ({
+                "Date": date, "Time": new Date(parseInt(ts)).toLocaleTimeString('en-PH'),
+                "Lat": snapshot.val()[ts].lat, "Lng": snapshot.val()[ts].lng
             }));
             const ws = XLSX.utils.json_to_sheet(rows);
             const wb = XLSX.utils.book_new();
             XLSX.utils.book_append_sheet(wb, ws, "Log");
-            XLSX.writeFile(wb, `FleetTrack_${driverName}_${date}.xlsx`);
+            XLSX.writeFile(wb, `iMerch_Log_${date}.xlsx`);
         };
 
         window.loadHistory = async () => {
@@ -138,9 +143,9 @@
             isHistoryMode = true;
             document.getElementById('liveBtn').style.display = "block";
             document.getElementById('exportBtn').style.display = "block";
-            const snapshot = await get(ref(db, `archives/${driver}/${date}`));
-            if(snapshot.exists()) {
-                const points = Object.values(snapshot.val()).map(p => [p.lat, p.lng]);
+            const snap = await get(ref(db, `archives/${driver}/${date}`));
+            if(snap.exists()) {
+                const points = Object.values(snap.val()).map(p => [p.lat, p.lng]);
                 routePath.setLatLngs(points);
                 carMarker.setLatLng(points[points.length - 1]);
                 map.fitBounds(routePath.getBounds());
@@ -164,8 +169,7 @@
                     document.getElementById('speed').innerText = d.speed || 0;
                     document.getElementById('distance').innerText = "🏁 " + (d.dist || "0.00") + " km";
                     document.getElementById('battery').innerText = "🔋 " + (d.battery || "--") + "%";
-                    const now = new Date();
-                    document.getElementById('lastSeen').innerText = "Last Seen: " + now.toLocaleTimeString('en-PH');
+                    document.getElementById('lastSeen').innerText = "Last Seen: " + new Date().toLocaleTimeString('en-PH');
                 }
             });
         }
