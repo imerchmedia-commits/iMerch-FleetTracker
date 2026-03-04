@@ -15,16 +15,22 @@
         .menu { position: absolute; bottom: 30px; left: 50%; transform: translateX(-50%); z-index: 1000; background: white; padding: 15px; border-radius: 20px; box-shadow: 0 8px 25px rgba(0,0,0,0.3); display: flex; flex-direction: column; align-items: center; gap: 5px; min-width: 280px; border: 2px solid #007AFF; transition: all 0.3s; }
         
         .driver-container { display: flex; align-items: center; gap: 12px; width: 100%; padding-bottom: 10px; border-bottom: 1px solid #eee; margin-bottom: 5px; position: relative; }
-        .profile-img { width: 52px; height: 52px; border-radius: 50%; border: 2px solid #007AFF; object-fit: cover; background: #eee; }
+        
+        /* Premium Pulse Effect */
+        .profile-img { width: 52px; height: 52px; border-radius: 50%; border: 2px solid #007AFF; object-fit: cover; background: #eee; transition: all 0.3s; }
+        .tracking-active .profile-img { border-color: #34C759; box-shadow: 0 0 10px rgba(52, 199, 89, 0.5); animation: pulse 2s infinite; }
+        @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(52, 199, 89, 0.4); } 70% { box-shadow: 0 0 0 10px rgba(52, 199, 89, 0); } 100% { box-shadow: 0 0 0 0 rgba(52, 199, 89, 0); } }
+
         .driver-text { display: flex; flex-direction: column; align-items: flex-start; flex-grow: 1; }
         .driver-name { font-size: 16px; font-weight: bold; color: #222; }
         .driver-user { font-size: 11px; color: #007AFF; font-weight: 600; text-transform: lowercase; }
         .last-seen { font-size: 9px; color: #888; margin-top: 2px; font-style: italic; }
 
-        /* Driver Switcher Styling */
-        .driver-selector { width: 100%; padding: 8px; border-radius: 10px; border: 1px solid #ddd; font-size: 14px; margin-bottom: 5px; outline: none; }
+        .driver-selector { width: 100%; padding: 8px; border-radius: 10px; border: 1px solid #ddd; font-size: 14px; margin-bottom: 5px; outline: none; background: #f9f9f9; }
 
-        button { padding: 12px 20px; border-radius: 12px; border: none; background: #007AFF; color: white; font-weight: bold; width: 100%; cursor: pointer; font-size: 16px; margin-top: 5px; }
+        button { padding: 12px 20px; border-radius: 12px; border: none; background: #007AFF; color: white; font-weight: bold; width: 100%; cursor: pointer; font-size: 16px; margin-top: 5px; transition: 0.2s; }
+        button:active { transform: scale(0.98); opacity: 0.9; }
+        
         .stats-row { display: flex; gap: 10px; align-items: center; margin: 5px 0; width: 100%; justify-content: space-around; }
         .speed-display { font-size: 28px; font-weight: bold; color: #007AFF; text-align: center; line-height: 1; }
         .speed-label { font-size: 10px; text-transform: uppercase; display: block; color: #666; }
@@ -46,12 +52,12 @@
             <option value="eljhay">Eljhay Ramos</option>
         </select>
 
-        <div class="driver-container">
-            <img id="profilePic" src="Ron Sarmenta.jpg" class="profile-img" alt="Driver" onerror="this.src='https://ui-avatars.com/api/?name=Ron+Sanity&background=007AFF&color=fff'">
+        <div class="driver-container" id="driverBox">
+            <img id="profilePic" src="Ron Sarmenta.jpg" class="profile-img" alt="Driver" onerror="this.src='https://ui-avatars.com/api/?name=User&background=007AFF&color=fff'">
             <div class="driver-text">
                 <span class="driver-name" id="displayDriver">Ron Sarmenta</span>
                 <span class="driver-user" id="displayUser">@ronsarmenta_imerch</span>
-                <span class="last-seen" id="lastSeen">Last Seen: Just now</span>
+                <span class="last-seen" id="lastSeen">Waiting for update...</span>
             </div>
         </div>
 
@@ -68,7 +74,7 @@
                 <span id="maxSpeed" style="color: #FF9500;">🚀 Max: 0 km/h</span>
             </div>
         </div>
-        <div id="status" class="status">Waiting for GPS...</div>
+        <div id="status" class="status">GPS Standby</div>
     </div>
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -80,7 +86,6 @@
         const app = initializeApp(firebaseConfig);
         const db = getDatabase(app);
         
-        // Driver Database
         const drivers = {
             ron: { name: "Ron Sarmenta", user: "@ronsarmenta_imerch", img: "Ron Sarmenta.jpg" },
             mico: { name: "Mico Balmaceda", user: "@mico_imerch", img: "mico.jpg" },
@@ -88,8 +93,13 @@
             eljhay: { name: "Eljhay Ramos", user: "@eljhay_imerch", img: "eljhay.jpg" }
         };
 
+        // Initialize Driver from LocalStorage
+        const savedDriver = localStorage.getItem('selectedDriver') || 'ron';
+        document.getElementById('driverPicker').value = savedDriver;
+
         window.changeDriver = () => {
             const selected = document.getElementById('driverPicker').value;
+            localStorage.setItem('selectedDriver', selected);
             const info = drivers[selected];
             document.getElementById('displayDriver').innerText = info.name;
             document.getElementById('displayUser').innerText = info.user;
@@ -98,6 +108,9 @@
                 document.getElementById('profilePic').src = `https://ui-avatars.com/api/?name=${info.name.replace(' ','+')}&background=007AFF&color=fff`;
             };
         };
+
+        // Run changeDriver once to set initial UI
+        changeDriver();
 
         const fenceCenter = [14.5794, 121.0359]; 
         const fenceRadius = 1000; 
@@ -121,17 +134,12 @@
                 const data = snap.val();
                 const carPos = L.latLng(data.lat, data.lng);
                 carMarker.setLatLng(carPos);
-                map.setView(carPos);
-
+                
                 if (data.history) {
                     const pathArray = Object.values(data.history).map(pt => [pt.lat, pt.lng]);
                     routePath.setLatLngs(pathArray);
                 }
 
-                // Sync UI with remote data if exists
-                if(data.driverName) document.getElementById('displayDriver').innerText = data.driverName;
-                if(data.username) document.getElementById('displayUser').innerText = "@" + data.username;
-                
                 if(data.lastUpdate) {
                     const updateDate = new Date(data.lastUpdate);
                     document.getElementById('lastSeen').innerText = "Last Seen: " + updateDate.toLocaleTimeString('en-PH');
@@ -153,9 +161,8 @@
                     statusLabel.innerText = "🚨 OUTSIDE GEOFENCE!";
                     statusLabel.className = "status outside-text";
                     mainMenu.className = "menu outside-fence";
-                    if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
                 } else {
-                    statusLabel.innerText = "Live Tracker Active";
+                    statusLabel.innerText = "Tracking Car 1";
                     statusLabel.className = "status";
                     mainMenu.className = "menu";
                 }
@@ -165,18 +172,22 @@
         let watchID = null;
         window.toggleTracking = async () => {
             const btn = document.getElementById('btn');
+            const driverBox = document.getElementById('driverBox');
+
             if(watchID) {
                 navigator.geolocation.clearWatch(watchID);
                 watchID = null;
                 lastLatLng = null;
                 btn.innerText = "📡 Start PH Tracking";
                 btn.style.background = "#007AFF";
+                driverBox.classList.remove('tracking-active');
             } else {
                 totalDistance = 0;
                 currentMaxSpeed = 0;
                 routePath.setLatLngs([]);
                 btn.innerText = "🛑 Stop Tracking";
                 btn.style.background = "#FF3B30";
+                driverBox.classList.add('tracking-active');
 
                 set(ref(db, 'cars/car1/history'), null);
 
@@ -216,8 +227,9 @@
                     updates['cars/car1/lastUpdate'] = new Date().toISOString();
                     
                     update(ref(db), updates);
+                    map.setView([lat, lng]);
 
-                }, err => alert("GPS Error"), { enableHighAccuracy: true });
+                }, err => alert("GPS Access Denied"), { enableHighAccuracy: true });
             }
         };
     </script>
