@@ -15,7 +15,6 @@
         .tracking-active .profile-img { border-color: #34C759; animation: pulse 2s infinite; }
         @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(52, 199, 89, 0.4); } 70% { box-shadow: 0 0 0 10px rgba(52, 199, 89, 0); } 100% { box-shadow: 0 0 0 0 rgba(52, 199, 89, 0); } }
 
-        /* Vehicle Switcher Buttons */
         .vehicle-switcher { display: flex; width: 100%; gap: 5px; margin-bottom: 5px; }
         .v-btn { flex: 1; padding: 8px; font-size: 12px; border-radius: 8px; border: 1px solid #007AFF; background: white; color: #007AFF; cursor: pointer; transition: 0.3s; font-weight: bold; }
         .v-btn.active { background: #007AFF; color: white; }
@@ -27,7 +26,6 @@
         button { padding: 12px 20px; border-radius: 12px; border: none; background: #007AFF; color: white; font-weight: bold; width: 100%; cursor: pointer; transition: 0.2s; }
         .btn-history { background: #5856D6; padding: 8px; font-size: 14px; }
         .btn-export { background: #34C759; display: none; margin-top: 5px; }
-        .viewing-history { border-color: #5856D6 !important; }
 
         .stats-row { display: flex; gap: 10px; align-items: center; margin: 5px 0; width: 100%; justify-content: space-around; }
         .speed-display { font-size: 28px; font-weight: bold; color: #007AFF; text-align: center; }
@@ -84,13 +82,12 @@
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-        import { getDatabase, ref, set, onValue, update, get } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+        import { getDatabase, ref, onValue, get } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 
         const firebaseConfig = { databaseURL: "https://cartracker-1df45-default-rtdb.firebaseio.com/" };
         const app = initializeApp(firebaseConfig);
         const db = getDatabase(app);
 
-        // Define Icons
         const carIcon = L.icon({
             iconUrl: 'https://cdn-icons-png.flaticon.com/512/744/744465.png',
             iconSize: [40, 40], iconAnchor: [20, 20]
@@ -110,51 +107,37 @@
         let liveListener = null;
         let isHistoryMode = false;
 
-        // --- VEHICLE TOGGLE LOGIC ---
         window.setVehicle = (type) => {
             document.getElementById('carBtn').classList.toggle('active', type === 'car');
             document.getElementById('motoBtn').classList.toggle('active', type === 'moto');
             carMarker.setIcon(type === 'moto' ? motoIcon : carIcon);
         };
 
-        // --- EXPORT LOGIC ---
         window.exportToExcel = async () => {
             const date = document.getElementById('historyDate').value;
             const driverKey = document.getElementById('driverPicker').value;
             const driverName = document.getElementById('displayDriver').innerText;
-
-            const historyRef = ref(db, `archives/${driverKey}/${date}`);
-            const snapshot = await get(historyRef);
-
+            const snapshot = await get(ref(db, `archives/${driverKey}/${date}`));
             if (!snapshot.exists()) return alert("No logs for export.");
-
             const data = snapshot.val();
             const rows = Object.keys(data).map(ts => ({
-                "Date": date,
-                "Driver": driverName,
-                "Time": new Date(parseInt(ts)).toLocaleTimeString('en-PH'),
-                "Lat": data[ts].lat,
-                "Lng": data[ts].lng,
-                "Org": "iMerch Media Inc."
+                "Date": date, "Driver": driverName, "Time": new Date(parseInt(ts)).toLocaleTimeString('en-PH'),
+                "Lat": data[ts].lat, "Lng": data[ts].lng, "Org": "iMerch Media Inc."
             }));
-
             const ws = XLSX.utils.json_to_sheet(rows);
             const wb = XLSX.utils.book_new();
             XLSX.utils.book_append_sheet(wb, ws, "Log");
             XLSX.writeFile(wb, `FleetTrack_${driverName}_${date}.xlsx`);
         };
 
-        // --- HISTORY LOGIC ---
         window.loadHistory = async () => {
             const date = document.getElementById('historyDate').value;
             const driver = document.getElementById('driverPicker').value;
             if(!date) return alert("Select date!");
-
             if(liveListener) liveListener(); 
             isHistoryMode = true;
             document.getElementById('liveBtn').style.display = "block";
             document.getElementById('exportBtn').style.display = "block";
-            
             const snapshot = await get(ref(db, `archives/${driver}/${date}`));
             if(snapshot.exists()) {
                 const points = Object.values(snapshot.val()).map(p => [p.lat, p.lng]);
@@ -181,15 +164,11 @@
                     document.getElementById('speed').innerText = d.speed || 0;
                     document.getElementById('distance').innerText = "🏁 " + (d.dist || "0.00") + " km";
                     document.getElementById('battery').innerText = "🔋 " + (d.battery || "--") + "%";
-
-                    // --- UPDATE LAST SEEN TIMESTAMP ---
                     const now = new Date();
-                    const timeString = now.toLocaleTimeString('en-PH', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-                    document.getElementById('lastSeen').innerText = "Last Seen: " + timeString;
+                    document.getElementById('lastSeen').innerText = "Last Seen: " + now.toLocaleTimeString('en-PH');
                 }
             });
         }
-
         startLiveUpdates();
     </script>
 </body>
