@@ -95,7 +95,7 @@
             <option value="mico">Mico Balmaceda</option>
             <option value="darwin">Darwin Pengson</option>
             <option value="eljhay">Eljhay Ramos</option>
-            <option value="vergel">Vergel Apurillo</option>
+            <option value="vergel">Vergel Archer</option>
         </select>
 
         <div class="stats-container">
@@ -158,8 +158,24 @@
         let currentBattery = "--";
         let fuelChartInstance = null;
 
+        // Distance Tracker Variables
+        let totalDistance = 0;
+        let lastPosition = null;
+
         const carIcon = L.icon({ iconUrl: 'https://cdn-icons-png.flaticon.com/512/741/741407.png', iconSize: [40, 40], iconAnchor: [20, 20] });
         const bikeIcon = L.icon({ iconUrl: 'https://cdn-icons-png.flaticon.com/512/2965/2965319.png', iconSize: [40, 40], iconAnchor: [20, 20] });
+
+        // Haversine Distance Calculator
+        function calculateDistance(lat1, lon1, lat2, lon2) {
+            const R = 6371; // Earth radius in km
+            const dLat = (lat2 - lat1) * Math.PI / 180;
+            const dLon = (lon2 - lon1) * Math.PI / 180;
+            const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+                      Math.sin(dLon/2) * Math.sin(dLon/2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+            return R * c;
+        }
 
         window.toggleMapStyle = (forceStyle) => {
             if (forceStyle === 'satellite' || (forceStyle === undefined && currentMapStyle === 'street')) {
@@ -174,15 +190,6 @@
             const driver = document.getElementById('driverPicker').value;
             document.getElementById('typeCar').classList.toggle('active', type === 'car');
             document.getElementById('typeBike').classList.toggle('active', type === 'bike');
-            
-            // ACCURATE ICON & MAP UPDATE:
-            // Switch to Satellite if Motor is clicked, or Street if Car is clicked.
-            if(type === 'bike') {
-                window.toggleMapStyle('satellite');
-            } else {
-                window.toggleMapStyle('street');
-            }
-
             update(ref(db, `cars/${driver}`), { type: type });
         };
 
@@ -206,20 +213,13 @@
             const snapshot = await get(ref(db, 'fuelLogs'));
             const data = snapshot.val();
             if(!data) return alert("No data to export");
-
             let exportData = [];
             for(let driver in data) {
                 for(let logId in data[driver]) {
                     const log = data[driver][logId];
-                    exportData.push({
-                        Driver: driver.toUpperCase(),
-                        Date: log.date,
-                        Amount_PHP: log.amount,
-                        Liters: log.liters
-                    });
+                    exportData.push({ Driver: driver.toUpperCase(), Date: log.date, Amount_PHP: log.amount, Liters: log.liters });
                 }
             }
-
             const ws = XLSX.utils.json_to_sheet(exportData);
             const wb = XLSX.utils.book_new();
             XLSX.utils.book_append_sheet(wb, ws, "Fuel Logs");
@@ -231,7 +231,6 @@
             const data = snapshot.val();
             const labels = [];
             const amounts = [];
-
             if(data) {
                 for(let driver in data) {
                     labels.push(driver.toUpperCase());
@@ -240,7 +239,6 @@
                     amounts.push(total);
                 }
             }
-
             const ctx = document.getElementById('fuelChart').getContext('2d');
             if(fuelChartInstance) fuelChartInstance.destroy();
             fuelChartInstance = new Chart(ctx, {
@@ -260,9 +258,15 @@
         };
 
         window.adminClearLogs = async () => {
-            if(confirm("Confirm: Delete all fuel records?")) {
-                await remove(ref(db, 'fuelLogs'));
-                window.updateChart();
+            // Updated with password protection
+            if(prompt("Enter Password to Clear Logs:") === "1234") {
+                if(confirm("Are you sure? This cannot be undone.")) {
+                    await remove(ref(db, 'fuelLogs'));
+                    alert("Logs cleared.");
+                    window.updateChart();
+                }
+            } else {
+                alert("Incorrect Password.");
             }
         };
 
@@ -285,6 +289,10 @@
             const driver = picker.value;
             document.getElementById('profilePic').src = (driver === "ron") ? "Ron Sarmenta.jpg" : driver + ".jpg";
             document.getElementById('displayDriver').innerText = picker.options[picker.selectedIndex].text;
+            // Reset distance when switching drivers
+            totalDistance = 0;
+            lastPosition = null;
+            document.getElementById('statDist').innerText = "0.00";
         };
 
         window.toggleTracking = async () => {
@@ -293,15 +301,38 @@
             if (!window.isTracking) {
                 window.isTracking = true;
                 btn.innerText = "🛑 Stop Tracking"; btn.style.background = "#FF3B30";
+                
                 window.watchID = navigator.geolocation.watchPosition(pos => {
-                    const lat = pos.coords.latitude; const lng = pos.coords.longitude;
-                    update(ref(db, `cars/${driver}`), { lat, lng, type: selectedType, lastUpdated: new Date().toLocaleTimeString() });
+                    const lat = pos.coords.latitude; 
+                    const lng = pos.coords.longitude;
+                    const speed = Math.round((pos.coords.speed || 0) * 3.6);
+                    
+                    // Live Distance Calculation
+                    if (lastPosition) {
+                        const dist = calculateDistance(lastPosition.lat, lastPosition.lng, lat, lng);
+                        if (dist > 0.005) { // Filter out GPS jitter (5 meters)
+                            totalDistance += dist;
+                        }
+                    }
+                    lastPosition = { lat, lng };
+
+                    document.getElementById('liveSpeed').innerText = speed;
+                    document.getElementById('statDist').innerText = totalDistance.toFixed(2);
+                    
+                    update(ref(db, `cars/${driver}`), { 
+                        lat, lng, 
+                        speed, 
+                        distance: totalDistance.toFixed(2),
+                        type: selectedType, 
+                        lastUpdated: new Date().toLocaleTimeString() 
+                    });
                     map.panTo([lat, lng]);
                 }, null, { enableHighAccuracy: true });
             } else {
                 window.isTracking = false;
                 navigator.geolocation.clearWatch(window.watchID);
                 btn.innerText = "📡 Start Tracking"; btn.style.background = "#007AFF";
+                lastPosition = null; // Reset position for next session
             }
         };
 
