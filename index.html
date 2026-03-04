@@ -113,16 +113,46 @@
         </div>
     </div>
 
-    <div id="chartModal"><div class="modal-content"><h3>📊 Fleet Report</h3><canvas id="fuelChart"></canvas><button class="export-btn" onclick="exportDataToExcel()">📂 Export to Excel</button><button class="export-btn" style="background:gray;" onclick="closeChartModal()">Close</button></div></div>
+    <div id="chartModal">
+        <div class="modal-content">
+            <h3>📊 Fleet Report</h3>
+            <canvas id="fuelChart"></canvas>
+            <button class="export-btn" onclick="exportDataToExcel()">📂 Export to Excel</button>
+            <button class="export-btn" style="background:#FF3B30;" onclick="adminClearLogs()">🗑️ Clear All Logs</button>
+            <button class="export-btn" style="background:gray;" onclick="closeChartModal()">Close</button>
+        </div>
+    </div>
     
-    <div id="routeModal"><div class="modal-content"><h3>🗺️ View History</h3><select id="histDriver"><option value="ron">Ron Sarmenta</option><option value="mico">Mico Balmaceda</option><option value="darwin">Darwin Pengson</option><option value="eljhay">Eljhay Ramos</option><option value="vergel">Vergel Apurillo</option></select><input type="date" id="histDate"><button class="export-btn" onclick="loadRouteHistory()">Analyze Route</button><button onclick="closeRouteModal()" style="color:gray; border:none; background:none;">Cancel</button></div></div>
+    <div id="routeModal">
+        <div class="modal-content">
+            <h3>🗺️ View History</h3>
+            <select id="histDriver">
+                <option value="ron">Ron Sarmenta</option>
+                <option value="mico">Mico Balmaceda</option>
+                <option value="darwin">Darwin Pengson</option>
+                <option value="eljhay">Eljhay Ramos</option>
+                <option value="vergel">Vergel Apurillo</option>
+            </select>
+            <input type="date" id="histDate">
+            <button class="export-btn" onclick="loadRouteHistory()">Analyze Route</button>
+            <button onclick="closeRouteModal()" style="color:gray; border:none; background:none;">Cancel</button>
+        </div>
+    </div>
 
-    <div id="fuelModal"><div class="modal-content"><h3>⛽ Fuel Entry</h3><input type="number" id="fuelAmount" placeholder="PHP Amount"><input type="number" id="fuelLiters" placeholder="Liters"><button class="export-btn" onclick="submitFuel()">Save Log</button><button onclick="closeFuelModal()">Cancel</button></div></div>
+    <div id="fuelModal">
+        <div class="modal-content">
+            <h3>⛽ Fuel Entry</h3>
+            <input type="number" id="fuelAmount" placeholder="PHP Amount">
+            <input type="number" id="fuelLiters" placeholder="Liters">
+            <button class="export-btn" onclick="submitFuel()">Save Log</button>
+            <button onclick="closeFuelModal()">Cancel</button>
+        </div>
+    </div>
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-        import { getDatabase, ref, update, push, get, onValue } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+        import { getDatabase, ref, update, push, get, onValue, remove } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 
         const firebaseConfig = { databaseURL: "https://cartracker-1df45-default-rtdb.firebaseio.com/" };
         const app = initializeApp(firebaseConfig);
@@ -155,10 +185,9 @@
             document.getElementById('typeCar').classList.toggle('active', type === 'car');
             document.getElementById('typeBike').classList.toggle('active', type === 'bike');
             
-            // Direct Satellite Switch for Motor
             if (type === 'bike' && currentMapStyle === 'street') window.toggleMapStyle();
             
-            // Realtime Firebase Update for Icon Change
+            // Sync icon change to Firebase
             update(ref(db, `cars/${driver}`), { type: type });
         };
 
@@ -173,20 +202,21 @@
             
             alert("Fuel Saved!");
             closeFuelModal();
-            updateChart(); // Direct chart update
+            updateChart();
         };
 
         const updateChart = async () => {
             const snapshot = await get(ref(db, 'fuelLogs'));
-            if(!snapshot.exists()) return;
-            const data = snapshot.val();
             const labels = [];
             const amounts = [];
             
-            Object.values(data).forEach(log => {
-                labels.push(log.date);
-                amounts.push(log.amount);
-            });
+            if(snapshot.exists()) {
+                const data = snapshot.val();
+                Object.values(data).forEach(log => {
+                    labels.push(log.date);
+                    amounts.push(log.amount);
+                });
+            }
 
             const ctx = document.getElementById('fuelChart').getContext('2d');
             if(myChart) myChart.destroy();
@@ -195,6 +225,29 @@
                 data: { labels: labels, datasets: [{ label: 'Fuel Expense (PHP)', data: amounts, backgroundColor: '#FF9500' }] }
             });
             document.getElementById('chartModal').style.display = 'flex';
+        };
+
+        window.adminClearLogs = async () => {
+            if (prompt("Admin Password to WIPE ALL DATA:") === "1234") {
+                await remove(ref(db, 'fuelLogs'));
+                await remove(ref(db, 'history'));
+                alert("All logs and history have been erased.");
+                updateChart();
+            } else {
+                alert("Access Denied.");
+            }
+        };
+
+        // Helper to manually remove a vehicle node (e.g., car1)
+        window.removeVehicle = async (vehicleID) => {
+            if (prompt("Enter Admin Password to remove " + vehicleID) === "1234") {
+                await remove(ref(db, `cars/${vehicleID}`));
+                if (vehicleMarkers[vehicleID]) {
+                    map.removeLayer(vehicleMarkers[vehicleID]);
+                    delete vehicleMarkers[vehicleID];
+                }
+                alert(vehicleID + " removed.");
+            }
         };
 
         window.toggleTracking = async () => {
@@ -222,6 +275,13 @@
 
         onValue(ref(db, 'cars'), (snapshot) => {
             const data = snapshot.val();
+            // Clear markers that are no longer in DB
+            for (let id in vehicleMarkers) {
+                if (!data || !data[id]) {
+                    map.removeLayer(vehicleMarkers[id]);
+                    delete vehicleMarkers[id];
+                }
+            }
             if(!data) return;
             for(let driver in data) {
                 const { lat, lng, type } = data[driver];
