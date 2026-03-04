@@ -57,7 +57,7 @@
             cursor: pointer; box-shadow: 0 4px 10px rgba(0,0,0,0.1);
         }
 
-        .traffic-on { background: #34C759; color: white; border-color: #248a3d; }
+        .traffic-on { background: #34C759 !important; color: white !important; border-color: #248a3d !important; }
 
         .menu { 
             position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%); 
@@ -87,9 +87,8 @@
         button#btn { padding: 15px; border-radius: 16px; background: #007AFF; color: white; font-weight: 800; width: 100%; border: none; cursor: pointer; font-size: 16px; }
         button#btn.tracking-on { background: #FF3B30; }
 
-        .fuel-log-btn { background: var(--accent) !important; margin-top: 5px; }
+        .fuel-log-btn { background: var(--accent) !important; margin-top: 5px; color: white; border: none; padding: 12px; border-radius: 12px; font-weight: bold; width: 100%; cursor: pointer; }
 
-        /* Modal Styles */
         #fuelModal {
             display: none; position: fixed; z-index: 2000; left: 0; top: 0; width: 100%; height: 100%;
             background: rgba(0,0,0,0.5); align-items: center; justify-content: center;
@@ -104,7 +103,6 @@
         .action-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; width: 100%; }
         .export-btn { background: #34C759; color: white; border: none; padding: 12px; border-radius: 12px; font-weight: bold; font-size: 12px; cursor: pointer; }
         .view-btn { background: #5856D6; color: white; border: none; padding: 12px; border-radius: 12px; font-weight: bold; font-size: 12px; cursor: pointer; }
-        .clear-btn { background: #8E8E93; color: white; border: none; padding: 8px; border-radius: 10px; font-weight: bold; font-size: 11px; width: 100%; margin-top: 5px; cursor: pointer; }
 
         .driver-container { display: flex; align-items: center; gap: 14px; width: 100%; padding: 5px 0; }
         .profile-img { width: 50px; height: 50px; border-radius: 50%; border: 2px solid #007AFF; object-fit: cover; }
@@ -149,7 +147,7 @@
         </div>
 
         <button onclick="toggleTracking()" id="btn">📡 Start Tracking</button>
-        <button onclick="openFuelModal()" id="fuelBtn" class="export-btn fuel-log-btn">⛽ Log Fuel Expense</button>
+        <button onclick="openFuelModal()" class="fuel-log-btn">⛽ Log Fuel Expense</button>
 
         <div class="stats-row">
             <div class="speed-display"><span id="speed">0</span><span style="font-size:11px; display:block; opacity: 0.7; font-weight: 600;">km/h</span></div>
@@ -166,7 +164,6 @@
                 <button class="view-btn" onclick="viewRoute()">🗺️ View Route</button>
                 <button class="export-btn" onclick="exportHistory()">📂 Export Excel</button>
             </div>
-            <button id="clearBtn" class="clear-btn" style="display:none;" onclick="clearRoute()">✖ Clear History Line</button>
         </div>
     </div>
 
@@ -202,11 +199,41 @@
         lightTiles.addTo(map);
         
         let carMarker = L.marker([14.5794, 121.0359], {icon: icons.car}).addTo(map);
-        let historyLine = L.polyline([], {color: '#007AFF', weight: 6, opacity: 0.8}).addTo(map);
-        
+        let trafficLayer = null;
         let isTracking = false;
         let currentVehicle = 'car';
         let watchID = null;
+
+        window.toggleTraffic = () => {
+            const btn = document.getElementById('trafficBtn');
+            // Switched to Humanitarian/Transport OpenStreetMap layer - No secret key required
+            const trafficUrl = 'https://{s}.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png';
+            
+            if (!trafficLayer) {
+                btn.classList.add('traffic-on');
+                trafficLayer = L.tileLayer(trafficUrl, {
+                    attribution: '&copy; OpenStreetMap contributors',
+                    opacity: 0.7
+                }).addTo(map);
+            } else {
+                btn.classList.remove('traffic-on');
+                map.removeLayer(trafficLayer);
+                trafficLayer = null;
+            }
+        };
+
+        window.toggleTheme = () => {
+            const body = document.body;
+            if (body.classList.contains('dark-mode')) {
+                body.classList.remove('dark-mode');
+                map.removeLayer(darkTiles);
+                lightTiles.addTo(map);
+            } else {
+                body.classList.add('dark-mode');
+                map.removeLayer(lightTiles);
+                darkTiles.addTo(map);
+            }
+        };
 
         window.setVehicle = (type) => {
             currentVehicle = type;
@@ -227,9 +254,7 @@
             const amount = document.getElementById('fuelAmount').value;
             const liters = document.getElementById('fuelLiters').value;
             const driverKey = document.getElementById('driverPicker').value;
-            
             if(!amount || !liters) return alert("Please fill both fields.");
-
             await push(ref(db, `fuel_logs/${driverKey}`), {
                 amount: parseFloat(amount),
                 liters: parseFloat(liters),
@@ -237,22 +262,8 @@
                 timestamp: new Date().getTime(),
                 dateString: new Date().toLocaleDateString()
             });
-
             alert("Fuel logged successfully!");
             closeFuelModal();
-        };
-
-        window.toggleTheme = () => {
-            const body = document.body;
-            if (body.classList.contains('dark-mode')) {
-                body.classList.remove('dark-mode');
-                map.removeLayer(darkTiles);
-                lightTiles.addTo(map);
-            } else {
-                body.classList.add('dark-mode');
-                map.removeLayer(lightTiles);
-                darkTiles.addTo-map(darkTiles);
-            }
         };
 
         window.toggleTracking = async () => {
@@ -264,15 +275,8 @@
                 btn.classList.add('tracking-on');
                 watchID = navigator.geolocation.watchPosition((pos) => {
                     const { latitude: lat, longitude: lng, speed: s } = pos.coords;
-                    const speed = Math.round((s || 0) * 3.6);
-                    update(ref(db, 'cars/car1'), { 
-                        lat, lng, speed, 
-                        driver: driverKey, 
-                        vehicleType: currentVehicle,
-                        lastUpdated: new Date().getTime() 
-                    });
-                    const today = new Date().toISOString().split('T')[0];
-                    push(ref(db, `archives/${driverKey}/${today}`), { lat, lng, timestamp: new Date().getTime() });
+                    update(ref(db, 'cars/car1'), { lat, lng, speed: Math.round((s || 0) * 3.6), driver: driverKey, vehicleType: currentVehicle, lastUpdated: new Date().getTime() });
+                    push(ref(db, `archives/${driverKey}/${new Date().toISOString().split('T')[0]}`), { lat, lng, timestamp: new Date().getTime() });
                     map.panTo([lat, lng]);
                 }, null, { enableHighAccuracy: true });
             } else {
@@ -287,7 +291,6 @@
             if(snap.exists()){
                 const d = snap.val();
                 carMarker.setLatLng([d.lat, d.lng]);
-                if(d.vehicleType) carMarker.setIcon(icons[d.vehicleType]);
                 document.getElementById('speed').innerText = d.speed || 0;
                 document.getElementById('battery').innerText = `🔋 ${d.battery || '--'}%`;
                 document.getElementById('lastSeen').innerText = "Update: " + new Date().toLocaleTimeString();
