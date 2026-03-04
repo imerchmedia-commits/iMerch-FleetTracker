@@ -8,108 +8,67 @@
     <link rel="icon" type="image/png" href="i-Merch Media Logo.png">
     <link rel="apple-touch-icon" href="i-Merch Media Logo.png">
     <meta name="mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-
     <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <style>
-        :root {
-            --bg: rgba(255, 255, 255, 0.9);
-            --text: #333;
-            --border: #007AFF;
-            --card-bg: #f8f9fa;
-            --accent: #FF9500;
-        }
-
-        .dark-mode {
-            --bg: rgba(28, 28, 30, 0.9);
-            --text: #ffffff;
-            --border: #0A84FF;
-            --card-bg: #2c2c2e;
-        }
-
-        body, html, #map { height: 100%; width: 100%; margin: 0; padding: 0; background: #f0f0f0; overflow: hidden; transition: background 0.3s; }
+        :root { --bg: rgba(255, 255, 255, 0.9); --text: #333; --border: #007AFF; --card-bg: #f8f9fa; --accent: #FF9500; }
+        .dark-mode { --bg: rgba(28, 28, 30, 0.9); --text: #ffffff; --border: #0A84FF; --card-bg: #2c2c2e; }
+        body, html, #map { height: 100%; width: 100%; margin: 0; padding: 0; background: #f0f0f0; overflow: hidden; }
         
         .logo-header { 
             position: absolute; top: 15px; left: 50%; transform: translateX(-50%); 
             z-index: 1001; background: var(--bg); padding: 12px 30px; 
             border-radius: 60px; box-shadow: 0 8px 25px rgba(0,0,0,0.2); 
-            display: flex; flex-direction: column; align-items: center; gap: 4px; 
-            border: 2px solid var(--border); backdrop-filter: blur(10px); 
-            -webkit-backdrop-filter: blur(10px); min-width: 240px;
+            display: flex; flex-direction: column; align-items: center; border: 2px solid var(--border);
         }
-        
-        .header-logo-img { height: 55px; width: auto; }
-        .brand-name { font-family: 'Segoe UI', sans-serif; font-size: 10px; font-weight: 700; color: #666; letter-spacing: 2px; text-transform: uppercase; }
-        .logo-text { font-family: 'Segoe UI', sans-serif; font-weight: 800; font-size: 22px; color: var(--text); line-height: 1; }
+        .header-logo-img { height: 45px; }
+        .logo-text { font-family: sans-serif; font-weight: 800; font-size: 20px; color: var(--text); }
         .logo-text span { color: #007AFF; }
 
-        .side-controls {
-            position: absolute; top: 20px; right: 20px; z-index: 1002;
-            display: flex; flex-direction: column; gap: 10px;
-        }
-
-        .control-btn {
-            background: var(--bg); border: 1.5px solid var(--border);
-            width: 45px; height: 45px; border-radius: 50%; display: flex;
-            align-items: center; justify-content: center; font-size: 22px;
-            cursor: pointer; box-shadow: 0 4px 10px rgba(0,0,0,0.1);
-        }
+        .side-controls { position: absolute; top: 20px; right: 20px; z-index: 1002; display: flex; flex-direction: column; gap: 10px; }
+        .control-btn { background: var(--bg); border: 1.5px solid var(--border); width: 45px; height: 45px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 22px; cursor: pointer; }
 
         .menu { 
             position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%); 
             z-index: 1000; background: var(--bg); padding: 18px; border-radius: 28px; 
             box-shadow: 0 10px 35px rgba(0,0,0,0.3); display: flex; flex-direction: column; 
-            align-items: center; gap: 10px; width: 92%; max-width: 360px; 
-            border: 1px solid var(--border); max-height: 75vh; overflow-y: auto; color: var(--text);
-            backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+            gap: 10px; width: 92%; max-width: 360px; border: 1px solid var(--border); color: var(--text);
         }
 
-        .chart-container { width: 100%; margin-top: 15px; background: var(--card-bg); border-radius: 15px; padding: 10px; box-sizing: border-box; }
-        
-        .log-calendar { width: 100%; margin-top: 10px; background: var(--card-bg); border-radius: 15px; padding: 10px; font-size: 12px; }
-        .log-item { display: flex; justify-content: space-between; padding: 5px 0; border-bottom: 1px solid #ddd; }
-
-        .vehicle-toggle-row { display: flex; background: var(--card-bg); border-radius: 12px; padding: 4px; width: 100%; gap: 4px; }
-        .v-btn { flex: 1; padding: 8px; border-radius: 10px; border: none; font-weight: bold; cursor: pointer; background: transparent; color: var(--text); font-size: 13px; }
-        .v-btn.active { background: #007AFF; color: white; }
-
-        .stats-row { display: flex; gap: 10px; align-items: center; width: 100%; justify-content: space-around; background: var(--card-bg); border-radius: 15px; padding: 12px 0; }
-        .speed-display { font-size: 28px; font-weight: 900; color: #007AFF; text-align: center; }
-        
-        button#btn { padding: 15px; border-radius: 16px; background: #007AFF; color: white; font-weight: 800; width: 100%; border: none; cursor: pointer; }
-        button#btn.tracking-on { background: #FF3B30; }
-        .fuel-log-btn { background: var(--accent) !important; color: white; border: none; padding: 12px; border-radius: 12px; font-weight: bold; width: 100%; cursor: pointer; margin-top:5px; }
-
-        #fuelModal, #chartModal {
-            display: none; position: fixed; z-index: 2000; left: 0; top: 0; width: 100%; height: 100%;
-            background: rgba(0,0,0,0.5); align-items: center; justify-content: center;
-        }
-        .modal-content {
-            background: var(--bg); padding: 20px; border-radius: 20px; width: 90%; max-width: 450px;
-            display: flex; flex-direction: column; gap: 15px; color: var(--text);
+        #routeStatus { 
+            position: absolute; bottom: 120px; left: 50%; transform: translateX(-50%);
+            background: #FF9500; color: white; padding: 10px 20px; border-radius: 25px;
+            font-weight: bold; z-index: 1001; display: none; text-align: center; box-shadow: 0 4px 15px rgba(0,0,0,0.2);
         }
 
         .action-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; width: 100%; }
         .export-btn { background: #34C759; color: white; border: none; padding: 12px; border-radius: 12px; font-weight: bold; cursor: pointer; }
+        .fuel-log-btn { background: var(--accent) !important; color: white; border: none; padding: 12px; border-radius: 12px; font-weight: bold; width: 100%; cursor: pointer; }
         
-        .driver-container { display: flex; align-items: center; gap: 14px; width: 100%; padding: 5px 0; }
-        .profile-img { width: 50px; height: 50px; border-radius: 50%; border: 2px solid #007AFF; object-fit: cover; background: #eee; }
-        select, input { background: var(--card-bg); color: var(--text); border: 1px solid #ddd; padding: 12px; border-radius: 12px; width: 100%; box-sizing: border-box; }
+        #fuelModal, #chartModal, #routeModal {
+            display: none; position: fixed; z-index: 2000; left: 0; top: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.5); align-items: center; justify-content: center;
+        }
+        .modal-content { background: var(--bg); padding: 20px; border-radius: 20px; width: 90%; max-width: 450px; display: flex; flex-direction: column; gap: 15px; color: var(--text); }
+        select, input { background: var(--card-bg); color: var(--text); border: 1px solid #ddd; padding: 12px; border-radius: 12px; width: 100%; }
+        .profile-img { width: 50px; height: 50px; border-radius: 50%; border: 2px solid #007AFF; }
     </style>
 </head>
 <body class="light-mode">
+    <div id="routeStatus">
+        <span id="routeInfo">Showing History</span><br>
+        <small onclick="clearRouteLayer()" style="text-decoration:underline; cursor:pointer;">Close & Clear Map</small>
+    </div>
+
     <div class="logo-header">
-        <div class="brand-name">i-Merch Media Inc.</div>
-        <img src="i-Merch Media Logo.png" alt="iMerch Logo" class="header-logo-img">
+        <img src="i-Merch Media Logo.png" class="header-logo-img">
         <div class="logo-text">Fleet<span>Track</span></div>
     </div>
 
     <div class="side-controls">
         <div class="control-btn" onclick="toggleTheme()">🌓</div>
-        <div class="control-btn" onclick="openChartModal()" title="View Dashboard">📊</div>
+        <div class="control-btn" onclick="openRouteModal()">🗺️</div>
     </div>
 
     <div id="map"></div>
@@ -123,213 +82,203 @@
             <option value="vergel">Vergel Apurillo</option>
         </select>
 
-        <div class="vehicle-toggle-row">
-            <button id="v-car" class="v-btn active" onclick="setVehicle('car')">🚗 Car</button>
-            <button id="v-moto" class="v-btn" onclick="setVehicle('moto')">🏍️ Moto</button>
-        </div>
-
-        <div class="driver-container">
+        <div style="display:flex; align-items:center; gap:10px;">
             <img id="profilePic" src="Ron Sarmenta.jpg" class="profile-img">
             <div>
-                <span id="displayDriver" style="font-weight:800;">Ron Sarmenta</span><br>
-                <span id="lastSeen" style="font-size:11px; opacity: 0.7;">System Ready</span>
+                <b id="displayDriver">Ron Sarmenta</b><br>
+                <span id="lastSeen" style="font-size:11px;">Status: Standby</span>
             </div>
         </div>
 
-        <button onclick="toggleTracking()" id="btn">📡 Start Tracking</button>
+        <button onclick="toggleTracking()" id="btn" style="padding:15px; border-radius:15px; background:#007AFF; color:white; font-weight:bold; border:none; cursor:pointer;">📡 Start Tracking</button>
+        
         <div class="action-grid">
-            <button onclick="openFuelModal()" class="fuel-log-btn">⛽ Log Fuel</button>
-            <button onclick="openChartModal()" class="fuel-log-btn" style="background:#5856D6 !important;">📊 Analytics</button>
+            <button onclick="openFuelModal()" class="fuel-log-btn">⛽ Fuel</button>
+            <button onclick="openChartModal()" class="fuel-log-btn" style="background:#5856D6 !important;">📊 Report</button>
         </div>
+    </div>
 
-        <div class="stats-row">
-            <div class="speed-display"><span id="speed">0</span><span style="font-size:11px; display:block;">km/h</span></div>
-            <div style="font-size:14px; font-weight:700;">
-                <span id="battery">🔋 --%</span><br>
-                <span id="distance">🏁 0.00 km</span>
-            </div>
+    <div id="routeModal">
+        <div class="modal-content">
+            <h3>🗺️ Route History</h3>
+            <select id="histDriver">
+                <option value="ron">Ron Sarmenta</option>
+                <option value="mico">Mico Balmaceda</option>
+                <option value="darwin">Darwin Pengson</option>
+                <option value="eljhay">Eljhay Ramos</option>
+                <option value="vergel">Vergel Apurillo</option>
+            </select>
+            <input type="date" id="histDate">
+            <button class="export-btn" onclick="loadRouteHistory()">Load Daily Route</button>
+            <button onclick="closeRouteModal()" style="background:none; border:none; color:gray;">Cancel</button>
         </div>
     </div>
 
     <div id="chartModal">
-        <div class="modal-content" style="max-height: 90vh; overflow-y: auto;">
-            <h3 style="margin:0; text-align:center;">📊 Fleet Analytics</h3>
-            
-            <div class="chart-container">
-                <canvas id="dailyChart"></canvas>
-            </div>
-
-            <h4 style="margin:10px 0 5px 0;">📅 Daily Log Calendar</h4>
-            <div id="logCalendar" class="log-calendar">
-                <div style="text-align:center; opacity:0.5;">No logs found</div>
-            </div>
-
-            <div class="action-grid" style="margin-top:10px;">
-                <button class="export-btn" onclick="exportAllFuelLogs()">📂 Export All to Excel</button>
-                <button class="export-btn" style="background:#FF3B30;" onclick="clearFuelLogs()">🗑️ Clear All Logs</button>
-            </div>
-            <button class="export-btn" style="background:#8E8E93; width:100%; margin-top:5px;" onclick="closeChartModal()">Close</button>
+        <div class="modal-content">
+            <h3>📊 Fleet Dashboard</h3>
+            <button class="export-btn" onclick="exportDataToExcel()">📂 Export All Logs (Excel)</button>
+            <button class="export-btn" style="background:#FF3B30;" onclick="closeChartModal()">Close</button>
         </div>
     </div>
 
     <div id="fuelModal">
         <div class="modal-content">
-            <h3 style="margin:0; text-align:center;">⛽ Fuel Entry</h3>
+            <h3>⛽ Fuel Entry</h3>
             <input type="number" id="fuelAmount" placeholder="Amount (PHP)">
             <input type="number" id="fuelLiters" placeholder="Liters (L)">
-            <div class="action-grid">
-                <button class="export-btn" style="background:#FF3B30;" onclick="closeFuelModal()">Cancel</button>
-                <button class="export-btn" onclick="submitFuel()">Save Log</button>
-            </div>
+            <button class="export-btn" onclick="submitFuel()">Save Log</button>
+            <button onclick="closeFuelModal()">Cancel</button>
         </div>
     </div>
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-        import { getDatabase, ref, update, push, get, set, remove } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+        import { getDatabase, ref, update, push, get } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 
         const firebaseConfig = { databaseURL: "https://cartracker-1df45-default-rtdb.firebaseio.com/" };
         const app = initializeApp(firebaseConfig);
         const db = getDatabase(app);
 
-        // --- PASSWORD PROTECTION ---
-        const MASTER_PWD = "admin123"; // Change this to your preferred password
-
         const map = L.map('map', { zoomControl: false }).setView([14.5794, 121.0359], 15);
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+        
+        let historyLayer = null;
+        document.getElementById('histDate').value = new Date().toISOString().split('T')[0];
 
-        let dailyChart;
-
-        // --- EXPORT ALL LOGS ---
-        window.exportAllFuelLogs = async () => {
-            const snapshot = await get(ref(db, `fuelLogs`));
-            if(!snapshot.exists()) return alert("No data to export.");
-
-            const logs = Object.values(snapshot.val());
-            const data = logs.sort((a,b) => b.timestamp - a.timestamp).map(l => ({
-                Date: l.date,
-                Time: new Date(l.timestamp).toLocaleTimeString(),
-                Driver: l.driver.toUpperCase(),
-                Amount_PHP: l.amount,
-                Liters_L: l.liters
-            }));
-
-            const ws = XLSX.utils.json_to_sheet(data);
-            const wb = XLSX.utils.book_new();
-            XLSX.utils.book_append_sheet(wb, ws, "AllFuelLogs");
-            XLSX.writeFile(wb, `iMerch_Fleet_FullReport_${new Date().toISOString().split('T')[0]}.xlsx`);
-        };
-
-        // --- SECURE CLEAR LOGS ---
-        window.clearFuelLogs = async () => {
-            const pwd = prompt("Enter Admin Password to clear all logs:");
-            
-            if (pwd === null) return; // User cancelled
-            
-            if (pwd === MASTER_PWD) {
-                if(confirm("DANGER: This will permanently delete EVERY log. Are you sure?")) {
-                    await remove(ref(db, `fuelLogs`));
-                    alert("Database Cleared Successfully.");
-                    closeChartModal();
-                }
-            } else {
-                alert("Incorrect Password. Access Denied.");
+        // --- DISTANCE CALCULATION (HAVERSINE) ---
+        function calculateDistance(coords) {
+            let total = 0;
+            for (let i = 0; i < coords.length - 1; i++) {
+                const p1 = coords[i];
+                const p2 = coords[i+1];
+                const R = 6371; // Earth radius in km
+                const dLat = (p2[0]-p1[0]) * Math.PI / 180;
+                const dLon = (p2[1]-p1[1]) * Math.PI / 180;
+                const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                          Math.cos(p1[0]*Math.PI/180) * Math.cos(p2[0]*Math.PI/180) *
+                          Math.sin(dLon/2) * Math.sin(dLon/2);
+                const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+                total += R * c;
             }
-        };
-
-        // --- DASHBOARD LOGIC ---
-        window.openChartModal = async () => {
-            document.getElementById('chartModal').style.display = 'flex';
-            const snapshot = await get(ref(db, `fuelLogs`));
-            const logDiv = document.getElementById('logCalendar');
-            
-            if(!snapshot.exists()) {
-                logDiv.innerHTML = '<div style="text-align:center; opacity:0.5;">No logs found</div>';
-                if(dailyChart) dailyChart.destroy();
-                return;
-            }
-
-            const logs = Object.values(snapshot.val()).sort((a,b) => b.timestamp - a.timestamp);
-            
-            logDiv.innerHTML = logs.map(l => `
-                <div class="log-item">
-                    <span><strong>${l.date}</strong> - ${l.driver.toUpperCase()}</span>
-                    <span>₱${l.amount} (${l.liters}L)</span>
-                </div>
-            `).join('');
-
-            renderDailyChart(logs);
-        };
-
-        function renderDailyChart(logs) {
-            const ctx = document.getElementById('dailyChart').getContext('2d');
-            const last7Days = [...Array(7)].map((_, i) => {
-                const d = new Date(); d.setDate(d.getDate() - i);
-                return d.toISOString().split('T')[0];
-            }).reverse();
-
-            const dailyTotals = last7Days.map(date => logs.filter(l => l.date === date).reduce((sum, l) => sum + l.amount, 0));
-            if(dailyChart) dailyChart.destroy();
-            dailyChart = new Chart(ctx, {
-                type: 'line',
-                data: {
-                    labels: last7Days.map(d => d.split('-').slice(1).join('/')),
-                    datasets: [{ label: 'Fleet Spend (PHP)', data: dailyTotals, borderColor: '#007AFF', tension: 0.4, fill: true, backgroundColor: 'rgba(0,122,255,0.1)' }]
-                }
-            });
+            return total.toFixed(2);
         }
 
-        // --- PHOTO & DRIVER LOGIC ---
-        window.updateDriverProfile = () => {
-            const picker = document.getElementById('driverPicker');
-            const val = picker.value;
-            document.getElementById('profilePic').src = (val === 'ron') ? "Ron Sarmenta.jpg" : val + ".jpg";
-            document.getElementById('displayDriver').innerText = picker.options[picker.selectedIndex].text;
+        // --- EXPORT TO EXCEL (MULTI-SHEET) ---
+        window.exportDataToExcel = async () => {
+            const fuelSnap = await get(ref(db, `fuelLogs`));
+            const histSnap = await get(ref(db, `history`));
+            
+            const wb = XLSX.utils.book_new();
+
+            // 1. Fuel Sheet
+            if(fuelSnap.exists()){
+                const fuelData = Object.values(fuelSnap.val()).map(l => ({
+                    Date: l.date, Driver: l.driver, Amount: l.amount, Liters: l.liters
+                }));
+                XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(fuelData), "Fuel Logs");
+            }
+
+            // 2. Route History Sheet
+            if(histSnap.exists()){
+                const routeRows = [];
+                const drivers = histSnap.val();
+                for(let driver in drivers){
+                    for(let date in drivers[driver]){
+                        const points = Object.values(drivers[driver][date]);
+                        points.forEach(p => {
+                            routeRows.push({
+                                Driver: driver,
+                                Date: date,
+                                Time: new Date(p.time).toLocaleTimeString(),
+                                Lat: p.lat,
+                                Lng: p.lng
+                            });
+                        });
+                    }
+                }
+                XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(routeRows), "Location History");
+            }
+
+            XLSX.writeFile(wb, `iMerch_Fleet_Report_${new Date().toISOString().split('T')[0]}.xlsx`);
         };
 
-        window.submitFuel = async () => {
-            const amt = document.getElementById('fuelAmount').value;
-            const ltr = document.getElementById('fuelLiters').value;
-            const driver = document.getElementById('driverPicker').value;
-            if(!amt || !ltr) return alert("Fill all fields");
+        window.loadRouteHistory = async () => {
+            const driver = document.getElementById('histDriver').value;
+            const date = document.getElementById('histDate').value;
+            const snapshot = await get(ref(db, `history/${driver}/${date}`));
+            
+            if(!snapshot.exists()) return alert("No logs found.");
 
-            await push(ref(db, `fuelLogs`), {
-                driver: driver,
-                amount: parseFloat(amt),
-                liters: parseFloat(ltr),
-                timestamp: new Date().getTime(),
-                date: new Date().toISOString().split('T')[0]
-            });
+            const points = Object.values(snapshot.val()).sort((a,b) => a.time - b.time);
+            const coords = points.map(p => [p.lat, p.lng]);
+            const dist = calculateDistance(coords);
 
-            alert("Fuel Logged!");
-            document.getElementById('fuelAmount').value = '';
-            document.getElementById('fuelLiters').value = '';
-            closeFuelModal();
+            if(historyLayer) map.removeLayer(historyLayer);
+            historyLayer = L.polyline(coords, { color: '#FF9500', weight: 5 }).addTo(map);
+            map.fitBounds(historyLayer.getBounds());
+
+            document.getElementById('routeInfo').innerHTML = `Driver: ${driver.toUpperCase()} | Dist: ${dist} km`;
+            document.getElementById('routeStatus').style.display = 'block';
+            closeRouteModal();
         };
 
-        window.closeChartModal = () => document.getElementById('chartModal').style.display = 'none';
-        window.openFuelModal = () => document.getElementById('fuelModal').style.display = 'flex';
-        window.closeFuelModal = () => document.getElementById('fuelModal').style.display = 'none';
-        window.toggleTheme = () => document.body.classList.toggle('dark-mode');
-        
+        window.clearRouteLayer = () => {
+            if(historyLayer) map.removeLayer(historyLayer);
+            document.getElementById('routeStatus').style.display = 'none';
+        };
+
+        // --- TRACKING & GLOBALS ---
         let isTracking = false;
         let watchID = null;
         window.toggleTracking = () => {
             const btn = document.getElementById('btn');
+            const driver = document.getElementById('driverPicker').value;
+            const today = new Date().toISOString().split('T')[0];
+
             if (!isTracking) {
                 isTracking = true;
                 btn.innerText = "🛑 Stop Tracking";
-                btn.classList.add('tracking-on');
+                btn.style.background = "#FF3B30";
                 watchID = navigator.geolocation.watchPosition(pos => {
-                    update(ref(db, 'cars/car1'), { lat: pos.coords.latitude, lng: pos.coords.longitude, lastUpdated: new Date().getTime() });
+                    const lat = pos.coords.latitude;
+                    const lng = pos.coords.longitude;
+                    update(ref(db, `cars/${driver}`), { lat, lng, lastUpdated: Date.now() });
+                    push(ref(db, `history/${driver}/${today}`), { lat, lng, time: Date.now() });
                 }, null, { enableHighAccuracy: true });
             } else {
                 isTracking = false;
                 navigator.geolocation.clearWatch(watchID);
                 btn.innerText = "📡 Start Tracking";
-                btn.classList.remove('tracking-on');
+                btn.style.background = "#007AFF";
             }
+        };
+
+        // Window Helper Functions
+        window.openRouteModal = () => document.getElementById('routeModal').style.display = 'flex';
+        window.closeRouteModal = () => document.getElementById('routeModal').style.display = 'none';
+        window.openFuelModal = () => document.getElementById('fuelModal').style.display = 'flex';
+        window.closeFuelModal = () => document.getElementById('fuelModal').style.display = 'none';
+        window.openChartModal = () => document.getElementById('chartModal').style.display = 'flex';
+        window.closeChartModal = () => document.getElementById('chartModal').style.display = 'none';
+        window.toggleTheme = () => document.body.classList.toggle('dark-mode');
+        window.updateDriverProfile = () => {
+            const p = document.getElementById('driverPicker');
+            document.getElementById('profilePic').src = p.value + ".jpg";
+            document.getElementById('displayDriver').innerText = p.options[p.selectedIndex].text;
+        };
+        window.submitFuel = async () => {
+            const amt = document.getElementById('fuelAmount').value;
+            const ltr = document.getElementById('fuelLiters').value;
+            if(!amt || !ltr) return alert("Error");
+            await push(ref(db, `fuelLogs`), {
+                driver: document.getElementById('driverPicker').value,
+                amount: parseFloat(amt), liters: parseFloat(ltr),
+                date: new Date().toISOString().split('T')[0]
+            });
+            alert("Logged!");
+            closeFuelModal();
         };
     </script>
 </body>
