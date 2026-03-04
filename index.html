@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>CarTracker PH Live + Driver ID</title>
+    <title>CarTracker PH Live + Premium ID</title>
     <link rel="manifest" href="manifest.json">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -14,9 +14,11 @@
         body, html, #map { height: 100%; width: 100%; margin: 0; padding: 0; background: #f0f0f0; }
         .menu { position: absolute; bottom: 30px; left: 50%; transform: translateX(-50%); z-index: 1000; background: white; padding: 15px; border-radius: 20px; box-shadow: 0 8px 25px rgba(0,0,0,0.3); display: flex; flex-direction: column; align-items: center; gap: 5px; min-width: 280px; border: 2px solid #007AFF; transition: all 0.3s; }
         
-        /* Driver Info Styles */
-        .driver-info { text-align: center; margin-bottom: 5px; border-bottom: 1px solid #eee; width: 100%; padding-bottom: 8px; }
-        .driver-name { font-size: 16px; font-weight: bold; color: #222; display: block; }
+        /* Driver Info Styles with Profile Image */
+        .driver-container { display: flex; align-items: center; gap: 12px; width: 100%; padding-bottom: 10px; border-bottom: 1px solid #eee; margin-bottom: 5px; }
+        .profile-img { width: 45px; height: 45px; border-radius: 50%; border: 2px solid #007AFF; object-fit: cover; background: #eee; }
+        .driver-text { display: flex; flex-direction: column; align-items: flex-start; }
+        .driver-name { font-size: 16px; font-weight: bold; color: #222; }
         .driver-user { font-size: 11px; color: #007AFF; font-weight: 600; text-transform: lowercase; }
 
         button { padding: 12px 20px; border-radius: 12px; border: none; background: #007AFF; color: white; font-weight: bold; width: 100%; cursor: pointer; font-size: 16px; margin-top: 5px; }
@@ -34,9 +36,12 @@
 <body>
     <div id="map"></div>
     <div class="menu" id="mainMenu">
-        <div class="driver-info">
-            <span class="driver-name" id="displayDriver">Ron Sanity</span>
-            <span class="driver-user" id="displayUser">@ronsarmenta_imerch</span>
+        <div class="driver-container">
+            <img src="icon.jpg" class="profile-img" alt="Driver" onerror="this.src='https://ui-avatars.com/api/?name=Ron+Sanity&background=007AFF&color=fff'">
+            <div class="driver-text">
+                <span class="driver-name" id="displayDriver">Ron Sanity</span>
+                <span class="driver-user" id="displayUser">@ronsarmenta_imerch</span>
+            </div>
         </div>
 
         <button onclick="toggleTracking()" id="btn">📡 Start PH Tracking</button>
@@ -81,7 +86,6 @@
         let lastLatLng = null;
         let currentMaxSpeed = 0;
 
-        // MONITOR
         onValue(ref(db, 'cars/car1'), (snap) => {
             if(snap.exists()){
                 const data = snap.val();
@@ -94,7 +98,6 @@
                     routePath.setLatLngs(pathArray);
                 }
 
-                // Sync Driver Name/User if updated in DB
                 if(data.driverName) document.getElementById('displayDriver').innerText = data.driverName;
                 if(data.username) document.getElementById('displayUser').innerText = "@" + data.username;
 
@@ -123,7 +126,6 @@
             }
         });
 
-        // TRACKER
         let watchID = null;
         window.toggleTracking = async () => {
             const btn = document.getElementById('btn');
