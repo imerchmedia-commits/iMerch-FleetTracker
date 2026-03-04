@@ -137,6 +137,7 @@
             <h3>📊 Fleet Analysis</h3>
             <canvas id="fuelChart"></canvas>
             <button class="main-btn" onclick="exportToExcel()" style="background:#34C759; margin-top:10px;">📥 Download Excel</button>
+            <button class="main-btn" onclick="clearAllLogs()" style="background:#FF3B30; margin-top:5px;">🗑️ Clear All Logs</button>
             <button class="main-btn" style="background:gray; margin-top:5px;" onclick="closeChartModal()">Close</button>
         </div>
     </div>
@@ -154,7 +155,7 @@
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-        import { getDatabase, ref, update, push, get, onValue } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+        import { getDatabase, ref, update, push, get, remove, onValue } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 
         const firebaseConfig = { databaseURL: "https://cartracker-1df45-default-rtdb.firebaseio.com/" };
         const app = initializeApp(firebaseConfig);
@@ -168,6 +169,21 @@
         let followMe = false;
         let currentVehicleType = 'car';
         let fuelChartInstance = null;
+
+        const driverImages = {
+            "ron": "Ron Sarmenta.jpg",
+            "mico": "mico.jpg",
+            "darwin": "darwin.jpg",
+            "eljhay": "eljhay.jpg",
+            "vergel": "vergel.jpg"
+        };
+
+        window.updateDriverProfile = () => {
+            const picker = document.getElementById('driverPicker');
+            const driver = picker.value;
+            document.getElementById('displayDriver').innerText = picker.options[picker.selectedIndex].text;
+            document.getElementById('profilePic').src = driverImages[driver] || "https://cdn-icons-png.flaticon.com/512/3135/3135715.png";
+        };
 
         const createIcon = (type, rotation = 0) => {
             const url = (type === 'bike') ? 'https://cdn-icons-png.flaticon.com/512/2965/2965319.png' : 'https://cdn-icons-png.flaticon.com/512/741/741407.png';
@@ -193,7 +209,6 @@
                 
                 if(id === driverSelected) {
                     document.getElementById('lastUpdateTime').innerText = lastUpdated || "--:--:--";
-                    // Pin Location Follow Logic
                     if(followMe) map.panTo([lat, lng]);
                 }
 
@@ -232,7 +247,6 @@
             }
         };
 
-        // Report & Chart Logic
         window.initChart = async () => {
             const snapshot = await get(ref(db, 'fuelLogs'));
             const logs = snapshot.val() || {};
@@ -245,6 +259,19 @@
                 type: 'bar',
                 data: { labels, datasets: [{ label: 'Fuel Expense (PHP)', data: values, backgroundColor: '#007AFF' }] }
             });
+        };
+
+        window.clearAllLogs = async () => {
+            if(confirm("Are you sure you want to delete ALL fuel and history logs?")) {
+                if(prompt("Confirm Admin PW:") === "1234") {
+                    await remove(ref(db, 'fuelLogs'));
+                    await remove(ref(db, 'history'));
+                    alert("Database Cleared Successfully.");
+                    location.reload();
+                } else {
+                    alert("Wrong Password!");
+                }
+            }
         };
 
         window.submitFuel = () => {
@@ -272,7 +299,6 @@
             XLSX.writeFile(wb, "Fleet_Fuel_Report.xlsx");
         };
 
-        // UI Helpers
         window.toggleFollowMe = () => { followMe = !followMe; document.getElementById('followBtn').classList.toggle('active', followMe); };
         window.toggleTheme = () => document.body.classList.toggle('dark-mode');
         window.toggleMapStyle = () => {
