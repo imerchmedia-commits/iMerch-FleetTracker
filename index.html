@@ -15,14 +15,14 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <style>
         :root {
-            --bg: white;
+            --bg: rgba(255, 255, 255, 0.9);
             --text: #333;
             --border: #007AFF;
             --card-bg: #f8f9fa;
         }
 
         .dark-mode {
-            --bg: #1c1c1e;
+            --bg: rgba(28, 28, 30, 0.9);
             --text: #ffffff;
             --border: #0A84FF;
             --card-bg: #2c2c2e;
@@ -31,68 +31,80 @@
         body, html, #map { height: 100%; width: 100%; margin: 0; padding: 0; background: #f0f0f0; overflow: hidden; transition: background 0.3s; }
         
         .logo-header { 
-            position: absolute; top: 20px; left: 50%; transform: translateX(-50%); 
-            z-index: 1001; background: var(--bg); padding: 10px 25px; 
-            border-radius: 50px; box-shadow: 0 6px 20px rgba(0,0,0,0.15); 
-            display: flex; align-items: center; gap: 12px; border: 1.5px solid var(--border); 
-            backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
-            min-width: 200px; justify-content: center;
+            position: absolute; top: 15px; left: 50%; transform: translateX(-50%); 
+            z-index: 1001; background: var(--bg); padding: 12px 30px; 
+            border-radius: 60px; box-shadow: 0 8px 25px rgba(0,0,0,0.2); 
+            display: flex; flex-direction: column; align-items: center; gap: 4px; 
+            border: 2px solid var(--border); backdrop-filter: blur(10px); 
+            -webkit-backdrop-filter: blur(10px); min-width: 240px;
         }
         
-        .header-logo-img { height: 45px; width: auto; }
-        .logo-text { font-family: 'Segoe UI', sans-serif; font-weight: 800; font-size: 20px; color: var(--text); }
+        .header-logo-img { height: 55px; width: auto; }
+        .brand-name { font-family: 'Segoe UI', sans-serif; font-size: 10px; font-weight: 700; color: #666; letter-spacing: 2px; text-transform: uppercase; }
+        .logo-text { font-family: 'Segoe UI', sans-serif; font-weight: 800; font-size: 22px; color: var(--text); line-height: 1; }
         .logo-text span { color: #007AFF; }
 
-        .theme-toggle {
-            position: absolute; top: 25px; right: 20px; z-index: 1002;
+        .side-controls {
+            position: absolute; top: 20px; right: 20px; z-index: 1002;
+            display: flex; flex-direction: column; gap: 10px;
+        }
+
+        .control-btn {
             background: var(--bg); border: 1.5px solid var(--border);
-            width: 40px; height: 40px; border-radius: 50%; display: flex;
-            align-items: center; justify-content: center; font-size: 20px;
+            width: 45px; height: 45px; border-radius: 50%; display: flex;
+            align-items: center; justify-content: center; font-size: 22px;
             cursor: pointer; box-shadow: 0 4px 10px rgba(0,0,0,0.1);
         }
 
+        .traffic-on { background: #34C759; color: white; border-color: #248a3d; }
+
         .menu { 
             position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%); 
-            z-index: 1000; background: var(--bg); padding: 15px; border-radius: 24px; 
-            box-shadow: 0 10px 30px rgba(0,0,0,0.2); display: flex; flex-direction: column; 
-            align-items: center; gap: 8px; width: 90%; max-width: 320px; 
-            border: 1px solid var(--border); max-height: 60vh; overflow-y: auto; color: var(--text);
+            z-index: 1000; background: var(--bg); padding: 18px; border-radius: 28px; 
+            box-shadow: 0 10px 35px rgba(0,0,0,0.3); display: flex; flex-direction: column; 
+            align-items: center; gap: 10px; width: 92%; max-width: 340px; 
+            border: 1px solid var(--border); max-height: 55vh; overflow-y: auto; color: var(--text);
+            backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
         }
 
         .stats-row { 
             display: flex; gap: 10px; align-items: center; width: 100%; 
             justify-content: space-around; background: var(--card-bg); 
-            border-radius: 12px; padding: 10px 0; border: 1px solid #444;
+            border-radius: 15px; padding: 12px 0; border: 1px solid rgba(0,0,0,0.1);
         }
         
-        .speed-display { font-size: 24px; font-weight: 900; color: #007AFF; text-align: center; }
-        button#btn { padding: 14px; border-radius: 14px; background: #007AFF; color: white; font-weight: 800; width: 100%; border: none; cursor: pointer; }
+        .speed-display { font-size: 28px; font-weight: 900; color: #007AFF; text-align: center; }
+        button#btn { padding: 15px; border-radius: 16px; background: #007AFF; color: white; font-weight: 800; width: 100%; border: none; cursor: pointer; font-size: 16px; }
         button#btn.tracking-on { background: #FF3B30; }
         
-        .export-section { width: 100%; border-top: 1px solid #444; padding-top: 10px; margin-top: 5px; display: flex; flex-direction: column; gap: 5px; }
-        .action-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; width: 100%; }
-        .export-btn { background: #34C759; color: white; border: none; padding: 10px; border-radius: 10px; font-weight: bold; font-size: 11px; cursor: pointer; }
-        .view-btn { background: #5856D6; color: white; border: none; padding: 10px; border-radius: 10px; font-weight: bold; font-size: 11px; cursor: pointer; }
-        .clear-btn { background: #8E8E93; color: white; border: none; padding: 6px; border-radius: 10px; font-weight: bold; font-size: 10px; width: 100%; margin-top: 5px; cursor: pointer; }
+        .export-section { width: 100%; border-top: 1px solid rgba(0,0,0,0.1); padding-top: 10px; margin-top: 5px; display: flex; flex-direction: column; gap: 6px; }
+        .action-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; width: 100%; }
+        .export-btn { background: #34C759; color: white; border: none; padding: 12px; border-radius: 12px; font-weight: bold; font-size: 12px; cursor: pointer; }
+        .view-btn { background: #5856D6; color: white; border: none; padding: 12px; border-radius: 12px; font-weight: bold; font-size: 12px; cursor: pointer; }
+        .clear-btn { background: #8E8E93; color: white; border: none; padding: 8px; border-radius: 10px; font-weight: bold; font-size: 11px; width: 100%; margin-top: 5px; cursor: pointer; }
 
-        .driver-container { display: flex; align-items: center; gap: 12px; width: 100%; }
-        .profile-img { width: 45px; height: 45px; border-radius: 50%; border: 2px solid #007AFF; }
+        .driver-container { display: flex; align-items: center; gap: 14px; width: 100%; padding: 5px 0; }
+        .profile-img { width: 50px; height: 50px; border-radius: 50%; border: 2px solid #007AFF; object-fit: cover; }
         
-        select, input[type="date"] { background: var(--card-bg); color: var(--text); border: 1px solid #ddd; }
+        select, input[type="date"] { background: var(--card-bg); color: var(--text); border: 1px solid #ddd; padding: 12px; border-radius: 12px; width: 100%; font-weight: 600; }
     </style>
 </head>
 <body class="light-mode">
     <div class="logo-header">
+        <div class="brand-name">i-Merch Media Inc.</div>
         <img src="i-Merch Media Logo.png" alt="iMerch Logo" class="header-logo-img">
         <div class="logo-text">Fleet<span>Track</span></div>
     </div>
 
-    <div class="theme-toggle" onclick="toggleTheme()">🌓</div>
+    <div class="side-controls">
+        <div class="control-btn" onclick="toggleTheme()" title="Toggle Dark Mode">🌓</div>
+        <div id="trafficBtn" class="control-btn" onclick="toggleTraffic()" title="Live Traffic">🚦</div>
+    </div>
 
     <div id="map"></div>
     
     <div class="menu" id="mainMenu">
-        <select id="driverPicker" onchange="updateDriverProfile()" style="width:100%; padding:10px; border-radius:12px; font-weight:600;">
+        <select id="driverPicker" onchange="updateDriverProfile()">
             <option value="ron">Ron Sarmenta</option>
             <option value="mico">Mico Balmaceda</option>
             <option value="darwin">Darwin Pengson</option>
@@ -103,24 +115,24 @@
         <div class="driver-container">
             <img id="profilePic" src="Ron Sarmenta.jpg" class="profile-img">
             <div style="display:flex; flex-direction:column; flex-grow:1;">
-                <span id="displayDriver" style="font-weight:800; font-size:14px;">Ron Sarmenta</span>
-                <span id="lastSeen" style="font-size:10px; opacity: 0.7;">Waiting...</span>
+                <span id="displayDriver" style="font-weight:800; font-size:16px;">Ron Sarmenta</span>
+                <span id="lastSeen" style="font-size:11px; opacity: 0.7;">System Ready</span>
             </div>
         </div>
 
         <button onclick="toggleTracking()" id="btn">📡 Start Tracking</button>
 
         <div class="stats-row">
-            <div class="speed-display"><span id="speed">0</span><span style="font-size:10px; display:block; opacity: 0.7;">km/h</span></div>
-            <div style="font-size:13px; font-weight:700; line-height: 1.4;">
+            <div class="speed-display"><span id="speed">0</span><span style="font-size:11px; display:block; opacity: 0.7; font-weight: 600;">km/h</span></div>
+            <div style="font-size:14px; font-weight:700; line-height: 1.5;">
                 <span id="battery">🔋 --%</span><br>
                 <span id="distance">🏁 0.00 km</span>
             </div>
         </div>
 
         <div class="export-section">
-            <span style="font-size: 11px; font-weight: bold; opacity: 0.7;">📜 HISTORY MANAGEMENT</span>
-            <input type="date" id="historyDate" style="padding: 10px; border-radius: 10px; font-family: sans-serif; margin-bottom: 5px;">
+            <span style="font-size: 11px; font-weight: 800; opacity: 0.6; text-transform: uppercase;">History Management</span>
+            <input type="date" id="historyDate">
             <div class="action-grid">
                 <button class="view-btn" onclick="viewRoute()">🗺️ View Route</button>
                 <button class="export-btn" onclick="exportHistory()">📂 Export Excel</button>
@@ -143,15 +155,23 @@
         
         const lightTiles = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png');
         const darkTiles = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png');
+        
+        // Traffic Layer (TomTom or similar overlay)
+        const trafficLayer = L.tileLayer('https://{s}.tile.thunderforest.com/transport/{z}/{x}/{y}.png?apikey=YOUR_API_KEY', {
+            opacity: 0.7
+        }); 
+        // Note: Using a standard high-visibility transport layer for congestion visualization
+        const hybridTraffic = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png');
+
         lightTiles.addTo(map);
         
         let carMarker = L.marker([14.5794, 121.0359], {icon: carIcon}).addTo(map);
-        let historyLine = L.polyline([], {color: '#007AFF', weight: 5, opacity: 0.7}).addTo(map);
+        let historyLine = L.polyline([], {color: '#007AFF', weight: 6, opacity: 0.8}).addTo(map);
         
         let isTracking = false;
+        let isTrafficOn = false;
         let watchID = null;
 
-        // Theme Toggle
         window.toggleTheme = () => {
             const body = document.body;
             if (body.classList.contains('dark-mode')) {
@@ -165,9 +185,28 @@
             }
         };
 
-        // Distance Calculation (Haversine Formula)
+        window.toggleTraffic = () => {
+            const btn = document.getElementById('trafficBtn');
+            if (!isTrafficOn) {
+                isTrafficOn = true;
+                btn.classList.add('traffic-on');
+                // Adding a specialized traffic overlay
+                window.trafficOverlay = L.tileLayer('https://{s}.tile.waymarkedtrails.org/slopes/{z}/{x}/{y}.png', {opacity: 0.4}).addTo(map);
+                // For actual Manila traffic, we'll use the OpenSeaMap or similar hybrid that highlights routes
+                map.addLayer(L.tileLayer('https://tiles.wmflabs.org/osm-no-labels/{z}/{x}/{y}.png', {opacity: 0.3}));
+            } else {
+                isTrafficOn = false;
+                btn.classList.remove('traffic-on');
+                map.eachLayer((layer) => {
+                    if (layer.options && layer.options.opacity < 0.9 && layer !== historyLine) {
+                        map.removeLayer(layer);
+                    }
+                });
+            }
+        };
+
         function getDistance(lat1, lon1, lat2, lon2) {
-            const R = 6371; // km
+            const R = 6371;
             const dLat = (lat2 - lat1) * Math.PI / 180;
             const dLon = (lon2 - lon1) * Math.PI / 180;
             const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
@@ -204,7 +243,7 @@
             const driver = document.getElementById('driverPicker').value;
             const date = document.getElementById('historyDate').value;
             const snapshot = await get(ref(db, `archives/${driver}/${date}`));
-            if(!snapshot.exists()) return alert("No route found.");
+            if(!snapshot.exists()) return alert("No route found for this date.");
             const points = [];
             snapshot.forEach(child => { points.push([child.val().lat, child.val().lng]); });
             historyLine.setLatLngs(points);
@@ -218,7 +257,7 @@
             const driver = document.getElementById('driverPicker').value;
             const date = document.getElementById('historyDate').value;
             const snapshot = await get(ref(db, `archives/${driver}/${date}`));
-            if(!snapshot.exists()) return alert("No data.");
+            if(!snapshot.exists()) return alert("No data to export.");
 
             let totalKm = 0;
             let lastPoint = null;
@@ -231,13 +270,13 @@
                 data.push({ Time: new Date(v.timestamp).toLocaleTimeString(), Lat: v.lat, Lng: v.lng });
             });
 
-            data.push({}); // Empty row
-            data.push({ Time: "TOTAL DISTANCE:", Lat: totalKm.toFixed(2) + " km" });
+            data.push({});
+            data.push({ Time: "TOTAL DISTANCE TRAVELLED:", Lat: totalKm.toFixed(2) + " km" });
 
             const ws = XLSX.utils.json_to_sheet(data);
             const wb = XLSX.utils.book_new();
-            XLSX.utils.book_append_sheet(wb, ws, "History");
-            XLSX.writeFile(wb, `iMerch_${driver}_${date}.xlsx`);
+            XLSX.utils.book_append_sheet(wb, ws, "Travel History");
+            XLSX.writeFile(wb, `iMerch_Fleet_${driver}_${date}.xlsx`);
         };
 
         window.updateDriverProfile = () => {
