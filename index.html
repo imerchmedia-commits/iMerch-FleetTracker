@@ -6,20 +6,19 @@
     <title>CarTracker PH Live + Geofence</title>
     <link rel="manifest" href="manifest.json">
     <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="CarTracker PH">
-
-<link rel="apple-touch-icon" href="icon.jpg">
-<link rel="manifest" href="manifest.json">
+    <meta name="apple-mobile-web-app-title" content="CarTracker PH">
+    <link rel="apple-touch-icon" href="icon.jpg">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <style>
         body, html, #map { height: 100%; width: 100%; margin: 0; padding: 0; background: #f0f0f0; }
         .menu { position: absolute; bottom: 30px; left: 50%; transform: translateX(-50%); z-index: 1000; background: white; padding: 15px; border-radius: 20px; box-shadow: 0 8px 25px rgba(0,0,0,0.3); display: flex; flex-direction: column; align-items: center; gap: 5px; min-width: 220px; border: 2px solid #007AFF; transition: all 0.3s; }
         button { padding: 12px 20px; border-radius: 12px; border: none; background: #007AFF; color: white; font-weight: bold; width: 100%; cursor: pointer; font-size: 16px; }
-        .speed-display { font-size: 32px; font-weight: bold; color: #007AFF; margin: 5px 0; }
+        .stats-row { display: flex; gap: 20px; align-items: center; margin: 5px 0; }
+        .speed-display { font-size: 32px; font-weight: bold; color: #007AFF; }
+        .battery-display { font-size: 18px; font-weight: bold; color: #444; }
         .status { font-size: 13px; color: #444; text-align: center; font-weight: 500; }
+        
         /* Geofence Alert Style */
         .outside-fence { border: 3px solid #FF3B30 !important; background: #ffebeb !important; }
         .outside-text { color: #FF3B30 !important; font-weight: bold; animation: blink 1s infinite; }
@@ -29,104 +28,4 @@
 <body>
     <div id="map"></div>
     <div class="menu" id="mainMenu">
-        <button onclick="toggleTracking()" id="btn">📡 Start PH Tracking</button>
-        <div id="speed" class="speed-display">0 km/h</div>
-        <div id="status" class="status">Waiting for GPS...</div>
-    </div>
-
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-        import { getDatabase, ref, set, onValue } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
-
-        const firebaseConfig = { databaseURL: "https://cartracker-1df45-default-rtdb.firebaseio.com/" };
-        const app = initializeApp(firebaseConfig);
-        const db = getDatabase(app);
-        
-        // GEOFENCE SETTINGS
-        const fenceCenter = [14.5794, 121.0359]; // Mandaluyong City Hall
-        const fenceRadius = 1000; // 1000 meters (1km)
-
-        const streetMap = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OSM' });
-        const satelliteMap = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { attribution: 'Esri' });
-        const trafficLayer = L.tileLayer('https://mt1.google.com/vt?lyrs=h@159,traffic&x={x}&y={y}&z={z}', { attribution: '© Google Traffic' });
-
-        const map = L.map('map', {
-            center: fenceCenter,
-            zoom: 14,
-            layers: [streetMap, trafficLayer]
-        });
-
-        L.control.layers({ "Street": streetMap, "Satellite": satelliteMap }, { "🚦 Traffic": trafficLayer }).addTo(map);
-        
-        // Draw the Geofence Circle on the map
-        const geofence = L.circle(fenceCenter, {
-            color: '#007AFF',
-            fillColor: '#007AFF',
-            fillOpacity: 0.1,
-            radius: fenceRadius
-        }).addTo(map);
-
-        let carMarker = L.marker(fenceCenter).addTo(map);
-
-        // MONITOR & GEOFENCE CHECK
-        onValue(ref(db, 'cars/car1'), (snap) => {
-            if(snap.exists()){
-                const {lat, lng, speed} = snap.val();
-                const carPos = L.latLng(lat, lng);
-                carMarker.setLatLng(carPos);
-                map.setView(carPos);
-
-                document.getElementById('speed').innerText = (speed || 0) + " km/h";
-                
-                // CHECK DISTANCE
-                const distance = map.distance(carPos, L.latLng(fenceCenter));
-                const statusLabel = document.getElementById('status');
-                const mainMenu = document.getElementById('mainMenu');
-
-                if (distance > fenceRadius) {
-                    statusLabel.innerText = "🚨 OUTSIDE GEOFENCE!";
-                    statusLabel.className = "status outside-text";
-                    mainMenu.className = "menu outside-fence";
-                    if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
-                } else {
-                    statusLabel.innerText = "Live: " + new Date().toLocaleTimeString('en-PH');
-                    statusLabel.className = "status";
-                    mainMenu.className = "menu";
-                }
-            }
-        });
-
-        // TRACKER: Send data to Firebase
-        let watchID = null;
-        window.toggleTracking = () => {
-            const btn = document.getElementById('btn');
-            if(watchID) {
-                navigator.geolocation.clearWatch(watchID);
-                watchID = null;
-                btn.innerText = "📡 Start PH Tracking";
-                btn.style.background = "#007AFF";
-                document.getElementById('status').innerText = "Tracking Stopped";
-            } else {
-                watchID = navigator.geolocation.watchPosition(pos => {
-                    const lat = pos.coords.latitude;
-                    const lng = pos.coords.longitude;
-                    let speedKMH = Math.round((pos.coords.speed || 0) * 3.6); 
-
-                    set(ref(db, 'cars/car1'), { 
-                        lat: lat, 
-                        lng: lng,
-                        speed: speedKMH,
-                        lastUpdate: new Date().toISOString()
-                    });
-                }, err => alert("Enable GPS!"), { enableHighAccuracy: true });
-
-                btn.innerText = "🛑 Stop Tracking";
-                btn.style.background = "#FF3B30";
-            }
-        };
-    </script>
-</body>
-</html>
-
-
+        <button onclick="toggleTracking()" id="btn">📡 Start PH
