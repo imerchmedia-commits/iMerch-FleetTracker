@@ -39,6 +39,8 @@
         .modal-content { background: var(--bg); padding: 20px; border-radius: 20px; width: 85%; max-width: 400px; color: var(--text); max-height: 85vh; overflow-y: auto; }
         .leaderboard-item { display: flex; justify-content: space-between; padding: 10px; border-bottom: 1px solid #eee; font-size: 14px; }
         .history-entry { padding: 10px; border-bottom: 1px solid #ddd; font-size: 12px; }
+        
+        .search-box { width: 100%; padding: 12px; margin-bottom: 10px; border-radius: 10px; border: 1px solid #ddd; box-sizing: border-box; }
     </style>
 </head>
 <body class="light-mode">
@@ -115,6 +117,14 @@
     <div id="historyModal">
         <div class="modal-content">
             <h3>📋 History Log</h3>
+            <select id="historyDriverSearch" onchange="loadHistory()" class="search-box">
+                <option value="">-- Select Driver --</option>
+                <option value="ron">Ron Sarmenta</option>
+                <option value="mico">Mico Balmaceda</option>
+                <option value="darwin">Darwin Pengson</option>
+                <option value="eljhay">Eljhay Ramos</option>
+                <option value="vergel">Vergel Archer</option>
+            </select>
             <input type="date" id="historyDate" onchange="loadHistory()" style="width:100%; padding:10px; margin-bottom:15px; border:1px solid #ddd; border-radius:10px;">
             <div id="historyList"></div>
             <button onclick="closeModal('historyModal')" class="main-btn" style="background:gray;">Close</button>
@@ -166,7 +176,6 @@
                     const timeStamp = new Date().toLocaleTimeString();
                     const dateKey = new Date().toISOString().split('T')[0];
 
-                    // Restored Real-time Update Logic
                     update(ref(db, `cars/${driverId}`), { 
                         lat, lng, speed, battery: batt, 
                         lastSeen: timeStamp,
@@ -186,10 +195,8 @@
             const picker = document.getElementById('driverPicker');
             const name = picker.options[picker.selectedIndex].text;
             document.getElementById('displayDriver').innerText = name;
-            // Restored Profile JPG mapping
             document.getElementById('profilePic').src = name + ".jpg";
             
-            // Restored Status: undefined (--) listener
             onValue(ref(db, `cars/${picker.value}`), (s) => {
                 const data = s.val();
                 const statusEl = document.getElementById('lastUpdateTime');
@@ -213,21 +220,27 @@
             closeModal('fuelModal'); alert("Log Saved!");
         };
 
+        // Updated History Loader with Driver Search
         window.loadHistory = async () => {
             const date = document.getElementById('historyDate').value;
-            const driverId = document.getElementById('driverPicker').value;
-            const snap = await get(ref(db, `history/${driverId}/${date}`));
+            const driverId = document.getElementById('historyDriverSearch').value;
             const list = document.getElementById('historyList');
+            
+            if (!date || !driverId) {
+                list.innerHTML = "Please select both driver and date.";
+                return;
+            }
+
+            const snap = await get(ref(db, `history/${driverId}/${date}`));
             list.innerHTML = "";
             if (snap.exists()) {
                 Object.values(snap.val()).forEach(h => {
                     list.innerHTML += `<div class="history-entry"><b>${h.time}</b>: ${h.speed}km/h at [${h.lat.toFixed(4)}, ${h.lng.toFixed(4)}]</div>`;
                 });
-            } else { list.innerHTML = "No history found."; }
+            } else { list.innerHTML = "No history found for this driver on this date."; }
         };
 
         window.checkAdminPass = async () => {
-            // Admin PIN: 1234 check
             if(prompt("Admin PIN:") === "1234") {
                 document.getElementById('chartModal').style.display='flex';
                 const snap = await get(ref(db, 'reports'));
