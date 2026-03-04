@@ -175,7 +175,7 @@
         let selectedType = 'car';
         let fuelChartInstance = null;
         let followMe = false;
-        let routePolyline = null; // Store the history line
+        let routePolyline = null;
 
         let totalDistance = 0;
         let lastPosition = null;
@@ -259,54 +259,106 @@
             closeFuelModal();
         };
 
-        // --- NEW: ANALYZE ROUTE HISTORY LOGIC ---
+        // --- RESTORED: FLEET REPORT & CHART LOGIC ---
+        window.checkAdminPass = () => { 
+            if (prompt("Admin Password:") === "1234") window.updateChart(); 
+            else alert("Incorrect Password"); 
+        };
+
+        window.updateChart = async () => {
+            const snapshot = await get(ref(db, 'fuelLogs'));
+            const data = snapshot.val();
+            const labels = [];
+            const amounts = [];
+            if(data) {
+                for(let driver in data) {
+                    labels.push(driver.toUpperCase());
+                    let total = 0;
+                    for(let log in data[driver]) total += data[driver][log].amount;
+                    amounts.push(total);
+                }
+            }
+            const ctx = document.getElementById('fuelChart').getContext('2d');
+            if(fuelChartInstance) fuelChartInstance.destroy();
+            fuelChartInstance = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [{ label: 'Total Spending (PHP)', data: amounts, backgroundColor: '#007AFF' }]
+                },
+                options: { responsive: true, maintainAspectRatio: true }
+            });
+            document.getElementById('chartModal').style.display = 'flex';
+        };
+
+        window.exportFuelCSV = async () => {
+            const snapshot = await get(ref(db, 'fuelLogs'));
+            const data = snapshot.val();
+            if(!data) return alert("No data to export");
+            let exportData = [];
+            for(let driver in data) {
+                for(let logId in data[driver]) {
+                    const log = data[driver][logId];
+                    exportData.push({ 
+                        Driver: driver.toUpperCase(), 
+                        Date: log.date, 
+                        Amount_PHP: log.amount, 
+                        Liters: log.liters,
+                        Efficiency_kmL: log.efficiency || "N/A"
+                    });
+                }
+            }
+            const ws = XLSX.utils.json_to_sheet(exportData);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, "Fuel Logs");
+            XLSX.writeFile(wb, `Fleet_Fuel_Report_${new Date().toLocaleDateString()}.csv`);
+        };
+
+        window.adminClearLogs = async () => {
+            if(prompt("Enter Password to Clear Logs:") === "1234") {
+                if(confirm("Are you sure? This cannot be undone.")) {
+                    await remove(ref(db, 'fuelLogs'));
+                    alert("Logs cleared.");
+                    window.updateChart();
+                }
+            } else {
+                alert("Incorrect Password.");
+            }
+        };
+
+        // --- ROUTE HISTORY LOGIC ---
         window.loadRouteHistory = async () => {
             const driver = document.getElementById('histDriver').value;
-            const date = document.getElementById('histDate').value; // format YYYY-MM-DD
+            const date = document.getElementById('histDate').value;
             if(!date) return alert("Please select a date");
-
-            const formattedDate = date.replace(/-/g, ""); // Clean date for FB key
-            const historyRef = ref(db, `history/${driver}/${formattedDate}`);
-            
-            const snapshot = await get(historyRef);
+            const formattedDate = date.replace(/-/g, "");
+            const snapshot = await get(ref(db, `history/${driver}/${formattedDate}`));
             const data = snapshot.val();
-
             if(!data) return alert("No history found for this date.");
-
             const path = Object.values(data).map(point => [point.lat, point.lng]);
-            
             if(routePolyline) map.removeLayer(routePolyline);
-            
             routePolyline = L.polyline(path, { color: '#007AFF', weight: 5, opacity: 0.7 }).addTo(map);
             map.fitBounds(routePolyline.getBounds());
-            
-            alert(`Found ${path.length} movement points. Route displayed.`);
+            alert(`Found ${path.length} points. Route displayed.`);
             closeRouteModal();
         };
 
         window.clearHistoryFromMap = () => {
-            if(routePolyline) {
-                map.removeLayer(routePolyline);
-                routePolyline = null;
-                alert("History cleared from map.");
-            }
+            if(routePolyline) { map.removeLayer(routePolyline); routePolyline = null; alert("History cleared."); }
         };
 
         onValue(ref(db, 'cars'), (snapshot) => {
             const data = snapshot.val();
             if(!data) return;
             const currentSelected = document.getElementById('driverPicker').value;
-            
             for(let driver in data) {
                 const { lat, lng, type, lastUpdated, lastEfficiency } = data[driver];
                 const icon = (type === 'bike') ? bikeIcon : carIcon;
-                
                 if(!vehicleMarkers[driver]) {
                     vehicleMarkers[driver] = L.marker([lat, lng], { icon: icon }).addTo(map).bindPopup(driver.toUpperCase());
                 } else {
                     vehicleMarkers[driver].setLatLng([lat, lng]).setIcon(icon);
                 }
-
                 if(driver === currentSelected) {
                     document.getElementById('lastUpdateTime').innerText = lastUpdated || "--:--:--";
                     if(lastEfficiency) document.getElementById('statEff').innerText = lastEfficiency;
@@ -319,7 +371,6 @@
             const driver = picker.value;
             document.getElementById('profilePic').src = (driver === "ron") ? "Ron Sarmenta.jpg" : driver + ".jpg";
             document.getElementById('displayDriver').innerText = picker.options[picker.selectedIndex].text;
-            
             const snapshot = await get(ref(db, `cars/${driver}`));
             const data = snapshot.val();
             if(data) {
@@ -328,8 +379,7 @@
                 document.getElementById('statEff').innerText = data.lastEfficiency || "0.0";
                 if(data.lat && data.lng) map.setView([data.lat, data.lng], 15);
             }
-            totalDistance = 0;
-            lastPosition = null;
+            totalDistance = 0; lastPosition = null;
         };
 
         window.toggleTracking = async () => {
@@ -338,7 +388,6 @@
             if (!window.isTracking) {
                 window.isTracking = true;
                 btn.innerText = "🛑 Stop Tracking"; btn.style.background = "#FF3B30";
-                
                 window.watchID = navigator.geolocation.watchPosition(pos => {
                     const lat = pos.coords.latitude; 
                     const lng = pos.coords.longitude;
@@ -349,33 +398,17 @@
 
                     if (lastPosition) {
                         const dist = calculateDistance(lastPosition.lat, lastPosition.lng, lat, lng);
-                        // Significant move (over 10 meters) triggers distance update and history log
                         if (dist > 0.01) {
                             totalDistance += dist;
-                            // Log history to Firebase for "Analyze Route" feature
-                            push(ref(db, `history/${driver}/${dateKey}`), {
-                                lat: lat,
-                                lng: lng,
-                                timestamp: Date.now()
-                            });
+                            push(ref(db, `history/${driver}/${dateKey}`), { lat, lng, timestamp: Date.now() });
                         }
                     }
                     lastPosition = { lat, lng };
-
                     document.getElementById('liveSpeed').innerText = speed;
                     document.getElementById('statDist').innerText = totalDistance.toFixed(2);
                     document.getElementById('lastUpdateTime').innerText = timeStr;
-                    
-                    update(ref(db, `cars/${driver}`), { 
-                        lat, lng, speed, 
-                        distance: totalDistance.toFixed(2),
-                        battery: deviceBattery,
-                        type: selectedType, 
-                        lastUpdated: timeStr 
-                    });
-
+                    update(ref(db, `cars/${driver}`), { lat, lng, speed, distance: totalDistance.toFixed(2), battery: deviceBattery, type: selectedType, lastUpdated: timeStr });
                     if(followMe) map.panTo([lat, lng]);
-
                 }, null, { enableHighAccuracy: true });
             } else {
                 window.isTracking = false;
