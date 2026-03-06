@@ -33,6 +33,16 @@
         .logo-text { font-weight: 800; font-size: 18px; color: var(--text); }
         .logo-text span { color: #007AFF; }
 
+        /* Search Bar Styles */
+        .search-container {
+            position: absolute; top: 85px; left: 50%; transform: translateX(-50%);
+            z-index: 1001; width: 85%; max-width: 350px; display: flex; gap: 5px;
+        }
+        .search-input { 
+            flex: 1; padding: 10px 15px; border-radius: 25px; border: 1.5px solid var(--border); 
+            background: var(--bg); color: var(--text); outline: none; box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+
         .stats-container {
             background: var(--card-bg); border-radius: 20px; padding: 15px; margin: 10px 0;
             border: 1px solid #e5e5ea; display: flex; justify-content: space-between;
@@ -44,6 +54,9 @@
         
         .other-stats { flex: 1; padding-left: 15px; display: flex; flex-direction: column; gap: 5px; }
         .stat-item { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600; color: var(--text); }
+
+        /* ETA Display */
+        .eta-box { background: #34C759; color: white; padding: 4px 8px; border-radius: 8px; font-size: 11px; margin-top: 5px; display: none; }
 
         .section-label { font-size: 11px; font-weight: 800; color: var(--secondary-text); text-transform: uppercase; letter-spacing: 1px; margin: 10px 0 5px 5px; }
 
@@ -85,6 +98,11 @@
         <div class="logo-text">Fleet<span>Link</span></div>
     </div>
 
+    <div class="search-container">
+        <input type="text" id="destinationSearch" class="search-input" placeholder="Search destination...">
+        <button class="control-btn" onclick="searchLocation()" style="width:40px; height:40px; font-size:16px;">🔍</button>
+    </div>
+
     <div class="side-controls">
         <div class="control-btn" onclick="toggleTheme()" title="Toggle Dark Mode">🌓</div>
         <div class="control-btn" id="navBtn" onclick="toggleNavigationMode()" title="Navigation Mode">🧭</div>
@@ -102,6 +120,7 @@
                 <b id="displayDriver" style="font-size: 18px;">Ron Sarmenta</b>
                 <span id="dateTimeDisplay"><span class="ts-date" id="liveDate">--/--/--</span><span class="ts-time" id="liveTime">--:--</span></span><br>
                 <span class="update-time">Last Seen: <span id="lastUpdateTime">--:--:--</span></span>
+                <div id="etaDisplay" class="eta-box">ETA: Calculating...</div>
             </div>
         </div>
 
@@ -189,6 +208,7 @@
         let fuelChartInstance = null;
         let followMe = false;
         let routePolyline = null;
+        let searchMarker = null;
 
         let totalDistance = 0;
         let lastPosition = null;
@@ -204,11 +224,29 @@
         }
         setInterval(updateLiveClock, 1000);
 
+        window.searchLocation = async () => {
+            const query = document.getElementById('destinationSearch').value;
+            if(!query) return;
+            try {
+                const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${query}`);
+                const data = await res.json();
+                if(data.length > 0) {
+                    const { lat, lon } = data[0];
+                    if(searchMarker) map.removeLayer(searchMarker);
+                    searchMarker = L.marker([lat, lon]).addTo(map).bindPopup("Destination: " + query).openPopup();
+                    map.flyTo([lat, lon], 15);
+                    document.getElementById('etaDisplay').style.display = 'block';
+                } else {
+                    alert("Location not found");
+                }
+            } catch(e) { console.error(e); }
+        };
+
         window.toggleNavigationMode = () => {
             document.body.classList.toggle('navigation-mode');
             const navBtn = document.getElementById('navBtn');
             navBtn.classList.toggle('active');
-            map.invalidateSize(); // Refresh map size to handle CSS scale
+            map.invalidateSize();
         };
 
         window.toggleFollowMe = () => {
@@ -402,7 +440,7 @@
             if(!data) return;
             const currentSelected = document.getElementById('driverPicker').value;
             for(let driver in data) {
-                const { lat, lng, type, lastUpdated, lastEfficiency, bearing } = data[driver];
+                const { lat, lng, type, lastUpdated, lastEfficiency, bearing, speed } = data[driver];
                 const icon = (type === 'bike') ? bikeIcon : carIcon;
                 
                 if(!vehicleMarkers[driver]) {
@@ -420,6 +458,17 @@
                     document.getElementById('lastUpdateTime').innerText = lastUpdated || "--:--:--";
                     if(lastEfficiency) document.getElementById('statEff').innerText = lastEfficiency;
                     if(followMe) map.panTo([lat, lng]);
+
+                    // Calculate ETA if search marker exists
+                    if(searchMarker && speed > 5) {
+                        const target = searchMarker.getLatLng();
+                        const dist = calculateDistance(lat, lng, target.lat, target.lng);
+                        const hours = dist / speed;
+                        const mins = Math.round(hours * 60);
+                        document.getElementById('etaDisplay').innerText = `ETA: ${mins} mins (${dist.toFixed(1)} km)`;
+                    } else if (searchMarker) {
+                        document.getElementById('etaDisplay').innerText = `ETA: Stopped`;
+                    }
                 }
             }
         });
