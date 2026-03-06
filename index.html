@@ -63,7 +63,6 @@
         .profile-img { width: 50px; height: 50px; border-radius: 50%; border: 2px solid #007AFF; object-fit: cover; }
         .update-time { font-size: 11px; color: var(--secondary-text); }
         
-        /* New realistic timestamp styles */
         .ts-date { color: #FF3B30; font-weight: bold; margin-left: 10px; }
         .ts-time { color: #34C759; font-weight: bold; margin-left: 5px; }
 
@@ -71,7 +70,6 @@
         #chartModal, #routeModal, #fuelModal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 2000; display: none; align-items: center; justify-content: center; }
         input, select { width: 100%; padding: 12px; border-radius: 10px; border: 1px solid #ddd; margin: 5px 0; box-sizing: border-box; }
         
-        /* Rotation styling for realistic icons */
         .vehicle-icon { transition: transform 0.5s ease-in-out; }
     </style>
 </head>
@@ -105,7 +103,7 @@
             <option value="mico">Mico Balmaceda</option>
             <option value="darwin">Darwin Pengson</option>
             <option value="eljhay">Eljhay Ramos</option>
-            <option value="vergel">Vergel Archer</option>
+            <option value="vergel">Vergel Apurillo</option>
         </select>
 
         <div class="stats-container">
@@ -154,7 +152,7 @@
                 <option value="mico">Mico Balmaceda</option>
                 <option value="darwin">Darwin Pengson</option>
                 <option value="eljhay">Eljhay Ramos</option>
-                <option value="vergel">Vergel Archer</option>
+                <option value="vergel">Vergel Apurillo</option>
             </select>
             <input type="date" id="histDate">
             <button class="main-btn" onclick="loadRouteHistory()">Analyze Route</button>
@@ -189,15 +187,14 @@
         let lastPosition = null;
         let deviceBattery = "--";
 
-        // Updated Icon with rotation class
         const carIcon = L.icon({ iconUrl: 'https://cdn-icons-png.flaticon.com/512/741/741407.png', iconSize: [40, 40], iconAnchor: [20, 20], className: 'vehicle-icon' });
         const bikeIcon = L.icon({ iconUrl: 'https://cdn-icons-png.flaticon.com/512/2965/2965319.png', iconSize: [40, 40], iconAnchor: [20, 20], className: 'vehicle-icon' });
 
-        // Update Realistic Date/Time
+        // UPDATED: 12-hour Clock Logic
         function updateLiveClock() {
             const now = new Date();
             document.getElementById('liveDate').innerText = now.toLocaleDateString();
-            document.getElementById('liveTime').innerText = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            document.getElementById('liveTime').innerText = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true });
         }
         setInterval(updateLiveClock, 1000);
 
@@ -232,7 +229,6 @@
             return R * c;
         }
 
-        // Calculate Bearing for Realistic Rotation
         function calculateBearing(lat1, lng1, lat2, lng2) {
             const dLon = (lng2 - lng1) * Math.PI / 180;
             const y = Math.sin(dLon) * Math.cos(lat2 * Math.PI / 180);
@@ -368,7 +364,6 @@
             closeRouteModal();
         };
 
-        // NEW: Secure Clear History
         window.secureClearHistory = () => {
             if (prompt("Admin Password to Clear Map:") === "1234") {
                 if(routePolyline) { 
@@ -397,7 +392,6 @@
                     vehicleMarkers[driver].setLatLng([lat, lng]).setIcon(icon);
                 }
                 
-                // Update marker rotation if bearing is available
                 if (bearing !== undefined) {
                     const markerEl = vehicleMarkers[driver].getElement();
                     if (markerEl) markerEl.style.transform += ` rotate(${bearing}deg)`;
@@ -437,14 +431,17 @@
                     const lng = pos.coords.longitude;
                     const speed = Math.round((pos.coords.speed || 0) * 3.6);
                     const now = new Date();
-                    const timeStr = now.toLocaleTimeString();
+                    
+                    // UPDATED: 12-hour format for lastUpdated
+                    const timeStr = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true });
+                    
                     const dateKey = now.toISOString().split('T')[0].replace(/-/g, "");
                     let bearing = 0;
 
                     if (lastPosition) {
                         const dist = calculateDistance(lastPosition.lat, lastPosition.lng, lat, lng);
                         bearing = calculateBearing(lastPosition.lat, lastPosition.lng, lat, lng);
-                        if (dist > 0.005) { // Log history only if moved significantly
+                        if (dist > 0.005) { 
                             totalDistance += dist;
                             push(ref(db, `history/${driver}/${dateKey}`), { lat, lng, timestamp: Date.now() });
                         }
