@@ -15,8 +15,14 @@
         :root { --bg: rgba(255, 255, 255, 0.95); --text: #333; --border: #007AFF; --card-bg: #ffffff; --accent: #FF9500; --secondary-text: #8e8e93; }
         .dark-mode { --bg: rgba(28, 28, 30, 0.95); --text: #ffffff; --border: #0A84FF; --card-bg: #1c1c1e; }
         
-        body, html, #map { height: 100%; width: 100%; margin: 0; padding: 0; background: #f0f0f0; overflow: hidden; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+        body, html, #map { height: 100%; width: 100%; margin: 0; padding: 0; background: #f0f0f0; overflow: hidden; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; transition: transform 0.5s ease-in-out; }
         
+        /* Navigation Mode Tilt */
+        .navigation-mode #map {
+            transform: perspective(1000px) rotateX(45deg) scale(1.2);
+            transform-origin: bottom;
+        }
+
         .logo-header { 
             position: absolute; top: 15px; left: 50%; transform: translateX(-50%); 
             z-index: 1001; background: var(--bg); padding: 10px 25px; 
@@ -81,6 +87,7 @@
 
     <div class="side-controls">
         <div class="control-btn" onclick="toggleTheme()" title="Toggle Dark Mode">🌓</div>
+        <div class="control-btn" id="navBtn" onclick="toggleNavigationMode()" title="Navigation Mode">🧭</div>
         <div class="control-btn" id="followBtn" onclick="toggleFollowMe()" title="Follow Me">📍</div>
         <div class="control-btn" onclick="toggleMapStyle()" title="Satellite View">🛰️</div>
         <div class="control-btn" onclick="openRouteModal()" title="History">🗺️</div>
@@ -197,6 +204,13 @@
         }
         setInterval(updateLiveClock, 1000);
 
+        window.toggleNavigationMode = () => {
+            document.body.classList.toggle('navigation-mode');
+            const navBtn = document.getElementById('navBtn');
+            navBtn.classList.toggle('active');
+            map.invalidateSize(); // Refresh map size to handle CSS scale
+        };
+
         window.toggleFollowMe = () => {
             followMe = !followMe;
             const fBtn = document.getElementById('followBtn');
@@ -252,7 +266,6 @@
             document.getElementById('typeBike').classList.toggle('active', type === 'bike');
             update(ref(db, `cars/${driver}`), { type: type });
             
-            // UI Visual Feedback: Center on updated marker
             if (vehicleMarkers[driver]) {
                 const icon = (type === 'bike') ? bikeIcon : carIcon;
                 vehicleMarkers[driver].setIcon(icon);
